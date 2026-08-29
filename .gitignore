@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Hidden-set seeds must never be committed (see challenges/*/tools/make_hidden.sh)
+*hidden-seeds*
+*.hidden-seeds
+
+# Local scratch
+.DS_Store
+/tmp/

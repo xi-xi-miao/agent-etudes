@@ -1,0 +1,24 @@
+[project]
+name = "agent-etudes"
+version = "0.1.0"
+description = "Études for the age of coding agents: same position, different games, annotated."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+c001 = [
+    "shapely>=2.0",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "challenges/c001/tests"]
+addopts = "-q"
