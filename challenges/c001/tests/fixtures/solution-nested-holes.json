@@ -1,0 +1,34 @@
+{
+  "instance_id": "c001-fixture-nested-holes",
+  "placements": [
+    {
+      "part_id": "pA",
+      "rotation_deg": 0.0,
+      "translation": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "part_id": "pB",
+      "rotation_deg": 0.0,
+      "translation": [
+        50.0,
+        50.0
+      ]
+    },
+    {
+      "part_id": "pC",
+      "rotation_deg": 0.0,
+      "translation": [
+        100.0,
+        100.0
+      ]
+    }
+  ],
+  "solver": {
+    "name": "fixture",
+    "seed": 0,
+    "version": "1"
+  }
+}

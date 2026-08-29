@@ -1,0 +1,18 @@
+{
+  "instance_id": "c001-fixture-rotations",
+  "placements": [
+    {
+      "part_id": "p001",
+      "rotation_deg": 90.0000001,
+      "translation": [
+        200.0,
+        200.0
+      ]
+    }
+  ],
+  "solver": {
+    "name": "fixture",
+    "seed": 0,
+    "version": "1"
+  }
+}

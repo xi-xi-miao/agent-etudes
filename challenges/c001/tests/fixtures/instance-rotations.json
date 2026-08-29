@@ -1,0 +1,35 @@
+{
+  "challenge": "c001",
+  "instance_id": "c001-fixture-rotations",
+  "parts": [
+    {
+      "exterior": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          40.0,
+          0.0
+        ],
+        [
+          40.0,
+          40.0
+        ],
+        [
+          0.0,
+          40.0
+        ]
+      ],
+      "holes": [],
+      "id": "p001"
+    }
+  ],
+  "rotations_allowed": [
+    0.0,
+    90.0
+  ],
+  "seed": 1,
+  "strip_width": 1000.0,
+  "tier": 1
+}

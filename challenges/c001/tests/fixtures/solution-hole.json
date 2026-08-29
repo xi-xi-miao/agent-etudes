@@ -1,0 +1,26 @@
+{
+  "instance_id": "c001-fixture-hole",
+  "placements": [
+    {
+      "part_id": "p001",
+      "rotation_deg": 0.0,
+      "translation": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "part_id": "p002",
+      "rotation_deg": 0.0,
+      "translation": [
+        80.0,
+        80.0
+      ]
+    }
+  ],
+  "solver": {
+    "name": "fixture",
+    "seed": 0,
+    "version": "1"
+  }
+}

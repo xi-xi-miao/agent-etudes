@@ -1,0 +1,9 @@
+{
+  "instance_id": "c001-fixture-squares",
+  "placements": [],
+  "solver": {
+    "name": "fixture",
+    "seed": 0,
+    "version": "1"
+  }
+}

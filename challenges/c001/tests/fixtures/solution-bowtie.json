@@ -1,0 +1,13 @@
+{
+  "instance_id": "c001-fixture-bowtie",
+  "placements": [
+    {
+      "part_id": "p001",
+      "rotation_deg": 0.0,
+      "translation": [
+        200.0,
+        200.0
+      ]
+    }
+  ]
+}

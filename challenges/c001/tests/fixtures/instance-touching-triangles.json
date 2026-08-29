@@ -1,0 +1,46 @@
+{
+  "challenge": "c001",
+  "instance_id": "c001-fixture-triangles",
+  "parts": [
+    {
+      "exterior": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          100.0,
+          0.0
+        ],
+        [
+          0.0,
+          100.0
+        ]
+      ],
+      "holes": [],
+      "id": "p001"
+    },
+    {
+      "exterior": [
+        [
+          100.0,
+          0.0
+        ],
+        [
+          100.0,
+          100.0
+        ],
+        [
+          0.0,
+          100.0
+        ]
+      ],
+      "holes": [],
+      "id": "p002"
+    }
+  ],
+  "rotations_allowed": "free",
+  "seed": 2,
+  "strip_width": 1000.0,
+  "tier": 2
+}

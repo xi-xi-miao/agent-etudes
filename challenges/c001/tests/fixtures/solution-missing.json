@@ -1,0 +1,18 @@
+{
+  "instance_id": "c001-fixture-squares",
+  "placements": [
+    {
+      "part_id": "p001",
+      "rotation_deg": 0.0,
+      "translation": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "solver": {
+    "name": "fixture",
+    "seed": 0,
+    "version": "1"
+  }
+}

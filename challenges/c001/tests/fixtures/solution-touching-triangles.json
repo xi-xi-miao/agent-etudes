@@ -1,0 +1,26 @@
+{
+  "instance_id": "c001-fixture-triangles",
+  "placements": [
+    {
+      "part_id": "p001",
+      "rotation_deg": 30.0,
+      "translation": [
+        200.0,
+        200.0
+      ]
+    },
+    {
+      "part_id": "p002",
+      "rotation_deg": 30.0,
+      "translation": [
+        200.0,
+        200.0
+      ]
+    }
+  ],
+  "solver": {
+    "name": "fixture",
+    "seed": 0,
+    "version": "1"
+  }
+}
