@@ -1,0 +1,153 @@
+# agent-etudes CI
+#
+# Jobs:
+#   secret-scan         gitleaks over the full history (transcripts are the riskiest artifact)
+#   lint-annotations    annotation grammar + session.yaml schema, cross-checked against the branch name
+#   validate-solutions  attempt branches only: run the challenge validator (taken from main) on every
+#                       solution file on the branch and post the utilization line as a step summary
+#   tests               shared-layer + per-challenge pytest, challenge contract checks, forbidden-word grep
+#
+# Branch protection (set in the GitHub UI): require secret-scan, lint-annotations and
+# validate-solutions on PRs to main. Attempt PRs are drafts and are never merged.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - "attempt/**"
+      - "retro/**"
+
+permissions:
+  contents: read
+
+env:
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only needed for organisation-owned repositories; personal repositories run without it.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  lint-annotations:
+    name: lint-annotations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync (shared layer only)
+        run: uv sync --frozen
+      - name: Lint annotations and session files
+        # Exits 0 with a notice when the branch has no annotations yet (mid-session pushes).
+        run: uv run python scripts/lint_annotations.py --session --expect-branch "$BRANCH_NAME"
+
+  validate-solutions:
+    name: validate-solutions
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.head_ref || github.ref_name, 'attempt/') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: List solution files on this branch
+        id: files
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main:refs/remotes/origin/main >/dev/null 2>&1 || true
+          base="$(git merge-base origin/main HEAD || git rev-list --max-parents=0 HEAD | tail -n1)"
+          files="$(git diff --name-only "$base" HEAD -- 'solutions/' | grep -E '\.json$' || true)"
+          if [ -z "$files" ]; then
+            echo "No solution files on this branch relative to main; nothing to validate." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s\n' "$files" > "$RUNNER_TEMP/solution-files.txt"
+            echo "count=$(wc -l < "$RUNNER_TEMP/solution-files.txt" | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Export the challenge oracle from main
+        if: steps.files.outputs.count != '0'
+        # The validator, manifest and instances always come from main, never from the attempt branch,
+        # so validator fixes and post-round hidden instances reach every branch without rebasing.
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/oracle"
+          git archive origin/main challenges | tar -x -C "$RUNNER_TEMP/oracle"
+      - name: Sync (all dependency groups)
+        if: steps.files.outputs.count != '0'
+        run: uv sync --frozen --all-groups
+      - name: Validate solutions
+        if: steps.files.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          xargs -a "$RUNNER_TEMP/solution-files.txt" uv run python scripts/validate_solutions.py \
+            --branch "$BRANCH_NAME" \
+            --challenge-root "$RUNNER_TEMP/oracle/challenges" \
+            --summary "$GITHUB_STEP_SUMMARY"
+      - name: Render solutions (if the challenge ships a renderer)
+        if: steps.files.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rendered"
+          uv run python scripts/validate_solutions.py \
+            --branch "$BRANCH_NAME" \
+            --challenge-root "$RUNNER_TEMP/oracle/challenges" \
+            --render-dir "$RUNNER_TEMP/rendered" \
+            --no-summary \
+            $(cat "$RUNNER_TEMP/solution-files.txt") || true
+          ls -1 "$RUNNER_TEMP/rendered" || true
+      - name: Upload rendered solutions
+        if: steps.files.outputs.count != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-solutions
+          path: ${{ runner.temp }}/rendered
+          if-no-files-found: ignore
+
+  tests:
+    name: tests (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+      - name: Sync (all dependency groups)
+        run: uv sync --frozen --all-groups
+      - name: pytest
+        run: uv run pytest
+      - name: Challenge contract checks
+        run: |
+          set -euo pipefail
+          for d in challenges/c[0-9][0-9][0-9]; do
+            [ -d "$d" ] || continue
+            echo "== $d"
+            uv run python scripts/check_challenge.py "$d"
+          done
+      - name: Forbidden-word check
+        run: bash scripts/check_words.sh
