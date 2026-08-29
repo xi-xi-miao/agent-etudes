@@ -8,6 +8,7 @@ __pycache__/
 *hidden-seeds*
 *.hidden-seeds
 
-# Local scratch
+# Local scratch and generated demo output (make demo)
+/build/
 .DS_Store
 /tmp/

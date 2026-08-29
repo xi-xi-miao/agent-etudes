@@ -22,3 +22,6 @@ default-groups = ["dev"]
 [tool.pytest.ini_options]
 testpaths = ["tests", "challenges/c001/tests"]
 addopts = "-q"
+markers = [
+    "slow: end-to-end round trips that take tens of seconds",
+]
