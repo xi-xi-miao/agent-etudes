@@ -1,0 +1,8 @@
+schema_version: 1
+id: c999
+number: 99
+title: "Fake Challenge (fixture)"
+status: draft
+start_tag: c999-start
+solutions_glob: "solutions/**/*.json"
+validate: "python tools/validate.py {instance} {solution} --json"
