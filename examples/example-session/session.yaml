@@ -1,0 +1,32 @@
+participant: example
+challenge: c001
+attempt: 1
+date: 2026-09-12
+
+tool:
+  name: "Example Agent CLI"
+  version: "1.4.2"
+
+model:
+  name: "example-model-large"
+
+harness:
+  config_paths: ["session/harness/"]
+  notes: "Default config plus a project rules file pinning the rotate-then-translate transform order and banning ready-made nesting libraries."
+
+duration_wall_minutes: 235
+
+cost:
+  tokens_in: 412000
+  tokens_out: 58000
+  usd_estimate: 3.9
+
+transcript:
+  path: "session/transcript/"
+  tool: "specstory"
+
+outcome:
+  tests_passed: null
+  self_assessment: "Valid layouts on all five tier-1 dev instances, utilization in the low fifties — barely above the shelf-packing floor I started from. I spent the first two hours building on an assumption I never checked, and the reset at +2:44 bought back more time than any optimization I wrote."
+
+notes: "Synthetic fixture, not a real attempt. Anchors point at commits and transcript entries that do not exist; the linter reports unresolvable git anchors as warnings, not errors."

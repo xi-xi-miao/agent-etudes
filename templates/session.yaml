@@ -1,0 +1,41 @@
+# session.yaml — session metadata for one attempt.
+# Copy to session/session.yaml on your attempt branch and fill in.
+# Required: participant, challenge, attempt, date, tool, model,
+#           duration_wall_minutes, outcome.
+# Checked by: uv run python scripts/lint_annotations.py --session
+
+participant: your-handle        # required, [a-z0-9-]+ ; same value in annotations.md
+challenge: c001                 # required, c### ; the etude you attempted
+attempt: 1                      # required, int >= 1 ; per-challenge counter, matches the branch
+date: 2026-09-12                # required, ISO date of the session
+
+tool:                           # required — free choice, but log it so readers judge comparability
+  name: "<agent product>"
+  version: "<version string>"
+
+model:                          # required
+  name: "<model id>"
+
+harness:                        # optional but encouraged
+  config_paths: ["session/harness/"]   # snapshot of agent config, rules files, MCP setup
+  notes: ""
+
+duration_wall_minutes: 235      # required, int — also sets the width of the ASCII phase timeline
+
+cost:                           # optional (e.g. from usage tooling)
+  tokens_in: 0
+  tokens_out: 0
+  usd_estimate: 0.0
+
+transcript:                     # optional
+  # Either a directory committed on the attempt branch — conventionally
+  # "session/transcript/" — or a tool-native export location outside the repo
+  # (e.g. ".specstory/history/"). Review it for secrets before you push.
+  path: "session/transcript/"
+  tool: "specstory"             # specstory | native | manual
+
+outcome:                        # required
+  tests_passed: null            # true / false / null until the challenge defines a suite
+  self_assessment: ""           # 1-3 sentences, honest
+
+notes: ""
