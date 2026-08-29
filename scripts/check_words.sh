@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+#
+# check_words.sh -- this repository reports utilizations, distributions and
+# timelines; it never reports standings. This check greps the whole tree for
+# the competitive vocabulary we have agreed not to use.
+#
+# Usage:  bash scripts/check_words.sh [ROOT]
+#         (ROOT defaults to the repository the script lives in)
+#
+# Allowed: the "what this is not" sentence in the top-level README.md. Every
+# other hit fails the check.
+#
+# Excluded from the search: .git/, .venv/, __pycache__/, .pytest_cache/,
+# node_modules/, docs/handoffs/ (the original briefs, kept verbatim for
+# provenance) and uv.lock. Binary files are skipped with grep -I.
+#
+# Portability: POSIX-ish shell, works with macOS bash 3.2 + BSD grep as well as
+# bash 5 + GNU grep.
+#
+# The search words are assembled from fragments below so that this script does
+# not match itself.
+
+set -u
+
+case "${1:-}" in
+  -h|--help)
+    echo "usage: bash scripts/check_words.sh [ROOT]"
+    exit 0
+    ;;
+esac
+
+if [ "$#" -ge 1 ] && [ -n "$1" ]; then
+  root="$1"
+else
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+  root="$(cd "$script_dir/.." && pwd)"
+fi
+
+if [ ! -d "$root" ]; then
+  echo "check_words.sh: no such directory: $root" >&2
+  exit 2
+fi
+
+w1='leader''board'
+w2='sco''re'
+w3='ra''nk'
+w4='win''ner'
+pattern="${w1}|${w2}|${w2}s|${w3}|${w3}s|${w3}ing|${w3}ings|${w4}"
+
+cd "$root" || exit 2
+
+hits="$(grep -rniwE "$pattern" . -I \
+  --exclude-dir=.git \
+  --exclude-dir=.venv \
+  --exclude-dir=venv \
+  --exclude-dir=__pycache__ \
+  --exclude-dir=.pytest_cache \
+  --exclude-dir=node_modules \
+  --exclude-dir=handoffs \
+  --exclude=uv.lock 2>/dev/null || true)"
+
+# --exclude-dir matches a directory's name, not its path, so drop anything
+# under docs/handoffs/ defensively; also drop the empty line the quoting of an
+# empty result would otherwise produce.
+hits="$(printf '%s\n' "$hits" | grep -v '^[[:space:]]*$' | grep -v '^\./docs/handoffs/' || true)"
+
+if [ -z "$hits" ]; then
+  echo "check-words: clean (no hits at all)"
+  exit 0
+fi
+
+allowed="$(printf '%s\n' "$hits" | grep '^\./README\.md:' || true)"
+offending="$(printf '%s\n' "$hits" | grep -v '^\./README\.md:' | grep -v '^[[:space:]]*$' || true)"
+
+if [ -n "$allowed" ]; then
+  echo "check-words: allowed hits in the top-level README.md:"
+  printf '%s\n' "$allowed" | sed 's/^/    /'
+fi
+
+allowed_count="$(printf '%s\n' "$allowed" | grep -c . || true)"
+if [ "$allowed_count" -gt 1 ]; then
+  echo "check-words: README.md may carry the vocabulary in exactly ONE sentence (the 'what this is not' line); found $allowed_count lines" >&2
+  exit 1
+fi
+
+if [ -z "$offending" ]; then
+  echo "check-words: clean (only the README.md sentence)"
+  exit 0
+fi
+
+echo "check-words: forbidden vocabulary outside README.md:" >&2
+printf '%s\n' "$offending" | sed 's/^/    /' >&2
+echo "" >&2
+echo "Use utilization / measure / distribution / count / standings instead." >&2
+exit 1
