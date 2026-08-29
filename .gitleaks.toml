@@ -1,0 +1,20 @@
+# gitleaks configuration for agent-etudes.
+#
+# Transcripts and harness snapshots are the riskiest artifact in this repository, so the default
+# rule set is used in full and only the synthetic fixtures are exempted. If gitleaks flags
+# something in a real session, redact it on the branch — do not widen this allowlist.
+#
+# Run locally with:  gitleaks detect --config .gitleaks.toml --redact
+
+title = "agent-etudes"
+
+[extend]
+# Inherit every rule from the bundled default configuration.
+useDefault = true
+
+[allowlist]
+description = "Synthetic fixtures: invented tokens that exist to exercise the tooling."
+paths = [
+  '''^examples/example-session/''',
+  '''^tests/fixtures/''',
+]
