@@ -1,8 +1,7 @@
 # Étude no. 1 — Irregular Shape Nesting (c001)
 
-**Status: `draft`** — mirrors `status:` in [`challenge.yaml`](challenge.yaml). Do not start an
-attempt yet; the position can still move. When the étude opens, the annotated tag `c001-start` is
-frozen on `main` and every attempt branch forks from it:
+**Status: `open`** — mirrors `status:` in [`challenge.yaml`](challenge.yaml). The annotated tag
+`c001-start` is frozen on `main` and every attempt branch forks from it:
 
 ```sh
 git fetch --tags

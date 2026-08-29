@@ -8,7 +8,7 @@ the human-readable title, the number and the current status live in `challenges/
 
 | id | no. | title | status | start tag |
 |---|---|---|---|---|
-| [c001](c001/) | 1 | Irregular Shape Nesting | draft | `c001-start` |
+| [c001](c001/) | 1 | Irregular Shape Nesting | open | `c001-start` |
 
 The status column mirrors `status:` in `challenges/<id>/challenge.yaml` — keep the two in step when
 you flip one:

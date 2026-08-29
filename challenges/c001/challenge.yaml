@@ -2,7 +2,7 @@ schema_version: 1
 id: c001
 number: 1
 title: Irregular Shape Nesting
-status: draft
+status: open
 start_tag: c001-start
 dependency_group: c001
 solutions_glob: "solutions/**/*.json"
