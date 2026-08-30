@@ -64,7 +64,7 @@ def instances():
 
 
 def test_dev_set_is_complete(dev_instances):
-    """15 files, exactly the ids SPEC.md section 6.5 calls for.
+    """15 files, exactly the ids README.md ("Dev set and hidden set") calls for.
 
     Asserted explicitly so the parametrised tests below cannot pass vacuously
     on an empty directory.
@@ -74,15 +74,16 @@ def test_dev_set_is_complete(dev_instances):
 
 
 def test_hidden_set_is_not_committed(c001_dir):
-    """Spec section 6: the hidden instances are generated after the round, never
-    committed with the challenge.  Only the placeholder may sit in ``hidden/``."""
+    """README.md ("Dev set and hidden set"): the hidden instances are generated
+    after the round, never committed with the challenge.  Only the placeholder
+    may sit in ``hidden/``."""
     hidden = c001_dir / "instances" / "hidden"
     assert hidden.is_dir()
     assert sorted(p.name for p in hidden.iterdir()) == [".gitkeep"]
 
 
 def test_spec_constants_are_pinned():
-    """The numbers SPEC.md section 6.2 states, asserted as literals.
+    """The numbers README.md ("Size mix and totals") states, asserted as literals.
 
     Every structural test below derives its thresholds from these constants, so
     without this test a loosened constant would silently take the whole file
@@ -91,7 +92,8 @@ def test_spec_constants_are_pinned():
     """
     assert generate.DEFAULT_PARTS == 40
     assert (generate.TARGET_AREA_MIN, generate.TARGET_AREA_MAX) == (2.0e6, 3.0e6)
-    # Size bands (SPEC.md section 6.2): the originally specified numbers, x2.8.
+    # Size bands (README.md, "Size mix and totals"): sized so 40 parts sum to the
+    # 2.0e6-3.0e6 total.
     assert generate.BAND_LARGE == (8.0e4, 17.0e4)
     assert generate.BAND_MEDIUM == (2.0e4, 8.0e4)
     assert generate.BAND_SMALL == (3.0e3, 2.0e4)
@@ -214,7 +216,7 @@ def test_dev_header_matches_its_filename_and_seed(path, instances):
     ``test_regeneration_is_byte_identical`` reads ``--tier``/``--seed`` out of
     the very file it is checking, so on its own it would happily bless a file
     built from the wrong seed.  This is the assertion that ties the committed
-    ids to the seeds SPEC.md section 6.5 names.
+    ids to the seeds README.md ("Dev set and hidden set") names.
     """
     instance = instances[path.stem]
     assert instance["instance_id"] == path.stem

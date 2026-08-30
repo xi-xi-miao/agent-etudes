@@ -86,7 +86,7 @@ DEFAULT_PARTS = 40
 
 #: Instance target total net area is drawn uniformly from this interval --
 #: at the default part count.  With another ``--parts`` the band is scaled by
-#: ``parts / DEFAULT_PARTS``, since the interval SPEC.md section 6.2 states is
+#: ``parts / DEFAULT_PARTS``, since the interval README.md ("Size mix and totals") states is
 #: the figure *for a 40-part instance*, and a 12-part instance made of 40
 #: parts' worth of
 #: material could not satisfy the diameter cap.  The factor is exactly 1.0 for
@@ -94,8 +94,8 @@ DEFAULT_PARTS = 40
 TARGET_AREA_MIN = 2.0e6
 TARGET_AREA_MAX = 3.0e6
 
-#: Size bands (net area), SPEC.md section 6.2: the originally specified bands
-#: scaled x2.8.
+#: Size bands (net area), README.md ("Size mix and totals"): sized so that 40 parts
+#: drawn 25/50/25 sum to the 2.0e6-3.0e6 instance total.
 BAND_LARGE = (8.0e4, 17.0e4)
 BAND_MEDIUM = (2.0e4, 8.0e4)
 BAND_SMALL = (3.0e3, 2.0e4)

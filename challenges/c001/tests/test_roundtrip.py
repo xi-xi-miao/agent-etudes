@@ -1,10 +1,11 @@
 """End-to-end round trip: ``demo.sh`` must carry an instance all the way from
 the generator to a validated, rendered layout, and must measure every committed
-dev instance on the way -- the round trip required by ``challenges/c001/SPEC.md``.
+dev instance on the way -- the round trip ``challenges/c001/README.md``
+("Start here") describes.
 
 The script is exercised as a script -- via ``bash``, into a throwaway output
 directory -- because that is how ``make demo CHALLENGE=c001`` and the challenge
-README's quickstart run it.  Two deliberate choices keep the test honest and
+README's "Start here" section run it.  Two deliberate choices keep the test honest and
 cheap:
 
 * ``PYTHON`` is set to the interpreter running pytest, so the round trip uses
