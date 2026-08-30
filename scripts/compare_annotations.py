@@ -11,11 +11,18 @@ ambiguous and wants a ``taxonomy-change`` PR.
         results/c001/alice/1/reviews/bob.annotations.md \\
         results/c001/alice/1/annotations.md
 
-Moves are aligned by their elapsed timestamp. When a timestamp carries a
-different number of lines in the two files, the lines are paired in order and
-the surplus is reported as present in only one file. The output is per-field
-agreement (phase including its stance marker, move, glyph) as counts and
-percentages, then the disagreements, then the unmatched lines.
+Moves are aligned by their elapsed timestamp. Two annotators are under no
+obligation to list the moves of one minute in the same order, so lines that
+share a timestamp are paired by what they say -- same move and glyph first,
+then same move, then same glyph -- and whatever is left over is reported as
+unpaired rather than guessed at. The output is per-field agreement (phase,
+stance, move, glyph) as counts and percentages, then the disagreements, then
+the lines that found no partner.
+
+``phase`` is the bare phase. The stance marker (``>`` / ``~``) of TAXONOMY §6
+is optional, so it gets its own row and is counted only over the pairs where
+both files supplied one: an omitted optional marker is not a differing
+reading of the minute.
 
 This tool judges nobody: it reports where two readings differ, not which one
 is right. It is informational and always exits 0.
@@ -35,33 +42,96 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import etudes_lib as lib  # noqa: E402  (needs the sys.path line above)
 
-#: The fields that are compared, in report order.
+#: The fields compared over every aligned pair, in report order.
 FIELDS = ("phase", "move", "glyph")
+
+#: Compared only where both files supplied one; reported on its own row.
+OPTIONAL_FIELD = "stance"
 
 NO_GLYPH = "-"
 
+#: Printed after an unpaired line whose minute *is* used by the other file.
+SAME_MINUTE_NOTE = "   [the other file has that minute, but no line matched]"
+
 
 def phase_of(move) -> str:
-    """``Build>`` -- the phase together with its stance marker."""
-    return move.phase + (move.stance or "")
+    """``Build`` -- the bare phase, without the optional stance marker."""
+    return move.phase
+
+
+def stance_of(move) -> Optional[str]:
+    """``>``, ``~`` or ``None`` -- the optional stance marker of TAXONOMY §6."""
+    return move.stance
 
 
 def glyph_of(move) -> str:
     return move.glyph or NO_GLYPH
 
 
+def phase_with_stance(move) -> str:
+    """``Build>`` -- what the line actually says, for display only."""
+    return move.phase + (move.stance or "")
+
+
 def summarize(move) -> str:
-    """``Build> DISPATCH ??`` -- the three compared fields, in grammar order."""
-    return f"{phase_of(move)} {move.move} {glyph_of(move)}"
+    """``Build> DISPATCH ??`` -- the line as written, in grammar order."""
+    return f"{phase_with_stance(move)} {move.move} {glyph_of(move)}"
+
+
+def _match_group(left: list, right: list) -> tuple[list, list, list]:
+    """Pair the lines of one timestamp by what they say.
+
+    Three greedy passes over ``left`` in file order -- same move *and* glyph,
+    then same move, then same glyph -- so two annotators who recorded the same
+    minute in a different order still line up. Timestamps are minute-granular
+    by design, so a minute routinely carries several lines and file order
+    inside it carries no meaning.
+
+    "No glyph" counts as a glyph in the third pass, so it is the weakest
+    signal of the three; it runs last for that reason.
+
+    Only when exactly one line is left on each side are those two paired: the
+    pairing is then unambiguous, which keeps a genuine one-against-one
+    disagreement (``Build NUDGE !!`` against ``Build REDIRECT ?``) visible.
+    Anything else left over is reported as unpaired rather than guessed at.
+    """
+    remaining_b = list(right)
+    pairs: list = []
+
+    # Pass by pass, each over the lines that are still unpaired.
+    pool = list(left)
+    for key in (
+        lambda m: (m.move, glyph_of(m)),
+        lambda m: m.move,
+        lambda m: glyph_of(m),
+    ):
+        still: list = []
+        for mv in pool:
+            wanted = key(mv)
+            index = next(
+                (i for i, other in enumerate(remaining_b) if key(other) == wanted),
+                None,
+            )
+            if index is None:
+                still.append(mv)
+            else:
+                pairs.append((mv, remaining_b.pop(index)))
+        pool = still
+
+    if len(pool) == 1 and len(remaining_b) == 1:
+        pairs.append((pool[0], remaining_b[0]))
+        pool, remaining_b = [], []
+
+    pairs.sort(key=lambda pair: pair[0].line)
+    return pairs, pool, remaining_b
 
 
 def align(a_moves: list, b_moves: list) -> tuple[list, list, list]:
-    """Pair moves by timestamp.
+    """Pair moves by timestamp, then by content within the timestamp.
 
     Returns ``(pairs, only_a, only_b)`` where ``pairs`` is a list of
-    ``(a_move, b_move)`` and the two others hold the moves whose timestamp had
-    no partner left. Within one timestamp the lines are paired in file order,
-    which is the only alignment available once the minute is the same.
+    ``(a_move, b_move)`` and the two others hold the moves that found no
+    partner. See ``_match_group`` for how one timestamp is resolved.
     """
     by_minute_a: dict[int, list] = {}
     by_minute_b: dict[int, list] = {}
@@ -74,79 +144,115 @@ def align(a_moves: list, b_moves: list) -> tuple[list, list, list]:
     only_a: list = []
     only_b: list = []
     for minute in sorted(set(by_minute_a) | set(by_minute_b)):
-        left = by_minute_a.get(minute, [])
-        right = by_minute_b.get(minute, [])
-        common = min(len(left), len(right))
-        pairs.extend(zip(left[:common], right[:common]))
-        only_a.extend(left[common:])
-        only_b.extend(right[common:])
+        matched, left_over_a, left_over_b = _match_group(
+            by_minute_a.get(minute, []), by_minute_b.get(minute, [])
+        )
+        pairs.extend(matched)
+        only_a.extend(left_over_a)
+        only_b.extend(left_over_b)
     return pairs, only_a, only_b
+
+
+def _agrees_on_the_three(a, b) -> bool:
+    return (
+        phase_of(a) == phase_of(b)
+        and a.move == b.move
+        and glyph_of(a) == glyph_of(b)
+    )
+
+
+def _stance_differs(a, b) -> bool:
+    """True only when both sides marked a stance and the two marks differ.
+
+    A bare phase against a marked one is an omitted optional field, not a
+    differing reading; see TAXONOMY §6.
+    """
+    return (
+        stance_of(a) is not None
+        and stance_of(b) is not None
+        and stance_of(a) != stance_of(b)
+    )
+
+
+def _row(agree: int, total: int) -> dict:
+    return {
+        "agree": agree,
+        "total": total,
+        "percent": (100.0 * agree / total) if total else None,
+    }
 
 
 def agreement(pairs: list) -> dict:
     """Per-field agreement counts and percentages over the aligned pairs."""
     total = len(pairs)
     out: dict[str, dict] = {}
+    getters = {"phase": phase_of, "move": lambda m: m.move, "glyph": glyph_of}
     for fieldname in FIELDS:
-        getter = {"phase": phase_of, "move": lambda m: m.move, "glyph": glyph_of}[
-            fieldname
-        ]
-        agree = sum(1 for a, b in pairs if getter(a) == getter(b))
-        out[fieldname] = {
-            "agree": agree,
-            "total": total,
-            "percent": (100.0 * agree / total) if total else None,
-        }
-    both = sum(
-        1
-        for a, b in pairs
-        if phase_of(a) == phase_of(b)
-        and a.move == b.move
-        and glyph_of(a) == glyph_of(b)
+        getter = getters[fieldname]
+        out[fieldname] = _row(
+            sum(1 for a, b in pairs if getter(a) == getter(b)), total
+        )
+        if fieldname == "phase":
+            # The stance marker is optional, so its row is counted only over
+            # the pairs where both files supplied one.
+            both_marked = [
+                (a, b)
+                for a, b in pairs
+                if stance_of(a) is not None and stance_of(b) is not None
+            ]
+            out[OPTIONAL_FIELD] = _row(
+                sum(1 for a, b in both_marked if stance_of(a) == stance_of(b)),
+                len(both_marked),
+            )
+    out["all three"] = _row(
+        sum(1 for a, b in pairs if _agrees_on_the_three(a, b)), total
     )
-    out["all three"] = {
-        "agree": both,
-        "total": total,
-        "percent": (100.0 * both / total) if total else None,
-    }
     return out
 
 
+def _sides(move) -> dict:
+    return {
+        "line": move.line,
+        "phase": phase_of(move),
+        "stance": stance_of(move),
+        "move": move.move,
+        "glyph": glyph_of(move),
+    }
+
+
 def disagreements(pairs: list) -> list[dict]:
-    """Every pair where at least one of the three fields differs."""
+    """Every pair where a compared field differs.
+
+    That is phase, move or glyph -- plus stance where both files marked one.
+    """
     out = []
     for a, b in pairs:
-        if phase_of(a) == phase_of(b) and a.move == b.move and glyph_of(a) == glyph_of(b):
+        if _agrees_on_the_three(a, b) and not _stance_differs(a, b):
             continue
         out.append(
             {
                 "timestamp": a.timestamp,
-                "a": {
-                    "line": a.line,
-                    "phase": phase_of(a),
-                    "move": a.move,
-                    "glyph": glyph_of(a),
-                },
-                "b": {
-                    "line": b.line,
-                    "phase": phase_of(b),
-                    "move": b.move,
-                    "glyph": glyph_of(b),
-                },
+                "a": _sides(a),
+                "b": _sides(b),
                 "text": f"{a.timestamp}: A={summarize(a)} | B={summarize(b)}",
             }
         )
     return out
 
 
-def _unmatched(moves: list) -> list[dict]:
+def _unmatched(moves: list, other_minutes: set) -> list[dict]:
+    """The lines that found no partner, each flagged with why.
+
+    ``shared_timestamp`` is true when the other file does have lines at that
+    minute: none of them matched, and the matcher declined to guess. Such a
+    line is not "at a timestamp the other file never used", so a reader must
+    be able to tell the two cases apart.
+    """
     return [
         {
             "timestamp": mv.timestamp,
-            "line": mv.line,
-            "phase": phase_of(mv),
-            "move": mv.move,
-            "glyph": glyph_of(mv),
+            "shared_timestamp": mv.minutes in other_minutes,
+            **_sides(mv),
             "text": f"{mv.timestamp}: {summarize(mv)}",
         }
         for mv in moves
@@ -179,8 +285,8 @@ def compare(path_a: Path, path_b: Path) -> dict:
         "aligned": len(pairs),
         "agreement": agreement(pairs),
         "disagreements": disagreements(pairs),
-        "only_in_a": _unmatched(only_a),
-        "only_in_b": _unmatched(only_b),
+        "only_in_a": _unmatched(only_a, {mv.minutes for mv in moves_b}),
+        "only_in_b": _unmatched(only_b, {mv.minutes for mv in moves_a}),
         "notes": notes,
     }
 
@@ -206,26 +312,39 @@ def render(report: dict) -> str:
                 f"  {name:<10} {data['agree']:>4} / {data['total']:<4} "
                 f"{_fmt_percent(data['percent'])}"
             )
+        lines.append("")
+        lines.append(
+            "  phase is the bare phase; the optional stance marker (> / ~) has"
+        )
+        lines.append(
+            "  its own row, counted only over the pairs where both files gave"
+        )
+        lines.append(
+            "  one. 'all three' is phase, move and glyph."
+        )
     lines.append("")
 
     lines.append("Disagreements")
     lines.append("-------------")
     if not report["disagreements"]:
-        lines.append("  none: every aligned line has the same phase, move and glyph.")
+        lines.append(
+            "  none: every aligned line has the same phase, move and glyph "
+            "(and the same stance where both files gave one)."
+        )
     else:
         for item in report["disagreements"]:
             lines.append("  " + item["text"])
     lines.append("")
 
-    lines.append("Lines present in only one file")
-    lines.append("------------------------------")
+    lines.append("Lines that found no partner")
+    lines.append("---------------------------")
     if not report["only_in_a"] and not report["only_in_b"]:
-        lines.append("  none: every line found a partner at its timestamp.")
+        lines.append("  none: every line was paired with one in the other file.")
     else:
-        for item in report["only_in_a"]:
-            lines.append("  only in A: " + item["text"])
-        for item in report["only_in_b"]:
-            lines.append("  only in B: " + item["text"])
+        for side, key in (("A", "only_in_a"), ("B", "only_in_b")):
+            for item in report[key]:
+                suffix = SAME_MINUTE_NOTE if item["shared_timestamp"] else ""
+                lines.append(f"  only in {side}: " + item["text"] + suffix)
 
     if report["notes"]:
         lines.append("")
