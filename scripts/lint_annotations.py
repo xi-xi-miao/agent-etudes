@@ -18,6 +18,16 @@ Every problem is reported as ``path:line: error: text`` or
 ``path:line: warning: text`` followed by a one line summary. Warnings never fail
 the run.
 
+Layout
+------
+An ``annotations.md`` is markdown. When its body contains a fenced code block
+(a line starting with three backticks opens one, the next such line closes it)
+only the lines inside fences are read as moves and everything outside them is
+prose; a ``+H:MM`` line outside every fence is an error. A file with no fence
+is read line by line. The rule is implemented in
+:func:`etudes_lib.parse_annotations_file`, so reviewer copies
+(``<reviewer>.annotations.md``) get it for free.
+
 Exit status
 -----------
 ``0``  no errors (warnings are fine, and so is finding nothing to lint)
