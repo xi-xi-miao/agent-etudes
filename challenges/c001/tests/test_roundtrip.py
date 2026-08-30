@@ -43,7 +43,7 @@ DEV_DIR = C001_DIR / "instances" / "dev"
 #: ``| c001-t1-dev-01 | 44.6 | 4800.621 |``
 ROW_RE = re.compile(r"^\|\s*(c001-\S+)\s*\|\s*([0-9.]+)\s*\|\s*([0-9.]+)\s*\|\s*$")
 
-TABLE_HEADER = "| instance | utilization % | used length |"
+TABLE_HEADER = "| instance | utilization % | used height |"
 
 #: Vocabulary this repository does not use (assembled from fragments so that
 #: this file does not match its own check).  See scripts/check_words.sh.
@@ -124,12 +124,12 @@ def test_table_numbers_are_plausible_measurements(demo_run):
     proc, _ = demo_run
     for row in table_rows(proc.stdout):
         utilization = float(row.group(2))
-        used_length = float(row.group(3))
+        used_height = float(row.group(3))
         # The measured band is 44.6-51.0%; the bounds are wide enough to absorb
         # a re-generated dev set but tight enough that a baseline regression
         # which halves the packing quality trips this test.
         assert 35.0 < utilization < 65.0, f"{row.group(1)}: utilization {utilization}"
-        assert used_length > 0.0, f"{row.group(1)}: used length {used_length}"
+        assert used_height > 0.0, f"{row.group(1)}: used height {used_height}"
 
 
 def test_artefacts_are_written(demo_run, dev_ids):

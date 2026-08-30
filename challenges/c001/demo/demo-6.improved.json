@@ -3,50 +3,50 @@
   "placements": [
     {
       "part_id": "p001",
-      "rotation_deg": 0.0,
+      "rotation_deg": 90.0,
       "translation": [
-        0.0,
-        50.0
+        150.0,
+        0.0
       ]
     },
     {
       "part_id": "p002",
-      "rotation_deg": 180.0,
+      "rotation_deg": 270.0,
       "translation": [
-        150.0,
-        200.0
+        0.0,
+        150.0
       ]
     },
     {
       "part_id": "p003",
-      "rotation_deg": 0.0,
+      "rotation_deg": 90.0,
       "translation": [
-        50.0,
-        100.0
+        100.0,
+        50.0
       ]
     },
     {
       "part_id": "p004",
-      "rotation_deg": 315.0,
+      "rotation_deg": 45.0,
       "translation": [
-        100.0,
-        43.0
+        157.0,
+        100.0
       ]
     },
     {
       "part_id": "p005",
-      "rotation_deg": 0.0,
+      "rotation_deg": 90.0,
       "translation": [
-        0.0,
+        200.0,
         0.0
       ]
     },
     {
       "part_id": "p006",
-      "rotation_deg": 0.0,
+      "rotation_deg": 90.0,
       "translation": [
-        10.0,
-        160.0
+        40.0,
+        10.0
       ]
     }
   ],

@@ -85,7 +85,7 @@ validate: "python tools/validate.py {instance} {solution} --json"
 - [ ] **The `--json` line contract.** The **last line of stdout** is a single JSON object:
 
   ```json
-  {"valid": true, "summary": "VALID  used_length=2841.0  utilization=52.7%", "errors": [], "measures": {"utilization_pct": 52.7, "used_length": 2841.0}}
+  {"valid": true, "summary": "VALID  used_height=2841.0  utilization=52.7%", "errors": [], "measures": {"utilization_pct": 52.7, "used_height": 2841.0}}
   ```
 
   - `valid` (bool, required) — did the solution pass every check.

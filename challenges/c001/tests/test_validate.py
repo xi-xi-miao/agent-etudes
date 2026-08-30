@@ -68,14 +68,14 @@ def test_fixture_instances_load():
 
 
 def test_two_squares_fill_the_strip_exactly(run_tool):
-    """Two 100x100 squares on a width-100 strip: full utilization, exit 0."""
+    """Two 100x100 squares stacked on a width-100 strip: full utilization, exit 0."""
     proc = run(run_tool, STRIP100, sol("solution-strip100-valid.json"))
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert proc.stdout.startswith("VALID  used_length=200.000  utilization=100.0%")
+    assert proc.stdout.startswith("VALID  used_height=200.000  utilization=100.0%")
     report = last_json(proc)
     assert report["valid"] is True
     assert report["errors"] == []
-    assert report["used_length"] == 200.0
+    assert report["used_height"] == 200.0
     assert report["utilization_pct"] == 100.0
 
 
@@ -99,13 +99,13 @@ def test_part_nested_in_a_hole_is_valid_and_area_excludes_the_hole(run_tool):
     expected_area = geom.total_area(instance)
     assert expected_area == pytest.approx(200.0 * 200.0 - 60.0 * 60.0 + 40.0 * 40.0)
     expected_pct = float(
-        geom.format_pct(geom.utilization(expected_area, instance["strip_width"], report["used_length"]))
+        geom.format_pct(geom.utilization(expected_area, instance["strip_width"], report["used_height"]))
     )
     assert report["utilization_pct"] == expected_pct
     # The hole must actually be subtracted: not counting it would read higher.
     naive_pct = float(
         geom.format_pct(
-            geom.utilization(200.0 * 200.0 + 40.0 * 40.0, instance["strip_width"], report["used_length"])
+            geom.utilization(200.0 * 200.0 + 40.0 * 40.0, instance["strip_width"], report["used_height"])
         )
     )
     assert naive_pct > expected_pct
@@ -150,7 +150,8 @@ def test_innermost_part_straddling_its_hole_is_an_overlap(run_tool):
     "instance,solution_name,expected",
     [
         (SQUARES, "solution-overlap.json", {"OVERLAP"}),
-        (STRIP100, "solution-outside-y.json", {"OUTSIDE_STRIP"}),
+        (STRIP100, "solution-outside-x.json", {"OUTSIDE_STRIP"}),
+        (STRIP100, "solution-negative-y.json", {"OUTSIDE_STRIP"}),
         (STRIP100, "solution-negative-x.json", {"OUTSIDE_STRIP"}),
         (SQUARES, "solution-missing.json", {"MISSING_PLACEMENT"}),
         (SQUARES, "solution-duplicate.json", {"DUPLICATE_PLACEMENT"}),
@@ -162,6 +163,7 @@ def test_innermost_part_straddling_its_hole_is_an_overlap(run_tool):
     ids=[
         "overlap",
         "protrudes-past-w",
+        "negative-y",
         "negative-x",
         "missing",
         "duplicate",
@@ -195,7 +197,8 @@ def test_overlap_names_both_parts_and_the_area(run_tool):
 
 
 def test_outside_strip_reports_the_protruding_area(run_tool):
-    proc = run(run_tool, STRIP100, sol("solution-outside-y.json"))
+    """A square hanging half over the strip's right edge: 50 x 100 outside."""
+    proc = run(run_tool, STRIP100, sol("solution-outside-x.json"))
     (error,) = last_json(proc)["errors"]
     assert error["code"] == "OUTSIDE_STRIP"
     assert error["part_id"] == "p002"
@@ -203,7 +206,18 @@ def test_outside_strip_reports_the_protruding_area(run_tool):
     assert error["area"] == pytest.approx(5000.0)
 
 
+def test_negative_y_area_is_measured_not_swallowed(run_tool):
+    """A square 10 units below the floor: 100 x 10 outside."""
+    proc = run(run_tool, STRIP100, sol("solution-negative-y.json"))
+    (error,) = last_json(proc)["errors"]
+    assert error["code"] == "OUTSIDE_STRIP"
+    assert error["part_id"] == "p001"
+    assert error["area"] == pytest.approx(1000.0)
+
+
 def test_negative_x_area_is_measured_not_swallowed(run_tool):
+    """A square 10 units past the strip's left edge: 10 x 100 outside.  The
+    standing strip is bounded on both sides in x, so each edge has its fixture."""
     proc = run(run_tool, STRIP100, sol("solution-negative-x.json"))
     (error,) = last_json(proc)["errors"]
     assert error["code"] == "OUTSIDE_STRIP"
@@ -248,7 +262,7 @@ def test_empty_placement_list_reports_every_part(run_tool):
     report = last_json(proc)
     assert codes(report) == {"MISSING_PLACEMENT"}
     assert {error["part_id"] for error in report["errors"]} == {"p001", "p002"}
-    assert report["used_length"] == 0.0
+    assert report["used_height"] == 0.0
     assert report["utilization_pct"] == 0.0
 
 
@@ -273,7 +287,7 @@ def test_nan_translation_is_a_schema_error(run_tool):
     report = last_json(proc)
     assert codes(report) == {"SCHEMA"}
     assert report["valid"] is False
-    assert report["used_length"] == 0.0
+    assert report["used_height"] == 0.0
     assert report["utilization_pct"] == 0.0
     assert "finite" in report["errors"][0]["message"]
 
@@ -317,7 +331,7 @@ def test_schema_message_is_prefixed_when_geom_omits_the_file_word(run_tool, tmp_
 def test_schema_report_still_carries_every_required_key(run_tool):
     proc = run(run_tool, SQUARES, sol("solution-nan.json"))
     report = last_json(proc)
-    for key in ("valid", "instance_id", "used_length", "utilization_pct", "summary", "errors", "measures"):
+    for key in ("valid", "instance_id", "used_height", "utilization_pct", "summary", "errors", "measures"):
         assert key in report
 
 
@@ -332,14 +346,14 @@ def test_json_object_is_the_last_line_and_has_the_documented_shape(run_tool):
     assert set(report) >= {
         "valid",
         "instance_id",
-        "used_length",
+        "used_height",
         "utilization_pct",
         "summary",
         "errors",
         "measures",
     }
     assert isinstance(report["valid"], bool)
-    assert isinstance(report["used_length"], float)
+    assert isinstance(report["used_height"], float)
     assert isinstance(report["utilization_pct"], float)
     assert isinstance(report["summary"], str)
     # summary is the human headline, widened on failure with the violation count
@@ -347,7 +361,7 @@ def test_json_object_is_the_last_line_and_has_the_documented_shape(run_tool):
     assert report["summary"].startswith("INVALID")
     assert report["measures"] == {
         "utilization_pct": report["utilization_pct"],
-        "used_length": report["used_length"],
+        "used_height": report["used_height"],
     }
     assert report["instance_id"] == "c001-fixture-squares"
 
@@ -368,13 +382,13 @@ def test_readme_json_example_carries_exactly_the_keys_the_tool_emits(run_tool, c
 def test_without_json_flag_nothing_machine_readable_is_printed(run_tool):
     proc = run_tool("validate", STRIP100, sol("solution-strip100-valid.json"))
     assert proc.returncode == 0
-    assert proc.stdout.splitlines() == ["VALID  used_length=200.000  utilization=100.0%"]
+    assert proc.stdout.splitlines() == ["VALID  used_height=200.000  utilization=100.0%"]
 
 
 def test_printed_and_json_measures_agree(run_tool):
     proc = run(run_tool, HOLE, sol("solution-hole.json"))
     report = last_json(proc)
-    assert "used_length={:.3f}".format(report["used_length"]) in proc.stdout
+    assert "used_height={:.3f}".format(report["used_height"]) in proc.stdout
     assert "utilization={}%".format(geom.format_pct(report["utilization_pct"] / 100.0)) in proc.stdout
 
 
@@ -409,16 +423,16 @@ def test_svg_flag_never_changes_the_exit_code(run_tool, tmp_path):
 def test_validate_function_returns_errors_and_measures():
     instance = geom.load_instance(STRIP100)
     solution = geom.load_solution(sol("solution-strip100-valid.json"))
-    errors, used_len, util = validate.validate(instance, solution)
+    errors, used_h, util = validate.validate(instance, solution)
     assert errors == []
-    assert used_len == pytest.approx(200.0)
+    assert used_h == pytest.approx(200.0)
     assert util == pytest.approx(1.0)
 
 
 def test_validate_function_flags_the_overlap():
     instance = geom.load_instance(SQUARES)
     solution = geom.load_solution(sol("solution-overlap.json"))
-    errors, _used_len, _util = validate.validate(instance, solution)
+    errors, _used_h, _util = validate.validate(instance, solution)
     assert [error["code"] for error in errors] == ["OVERLAP"]
 
 
@@ -435,8 +449,9 @@ def test_main_returns_the_documented_exit_codes(capsys, tmp_path):
 
 
 def _grid_instance(path, cols=10, rows=6, side=100.0):
-    """A 60-part instance of touching unit squares: the worst case for the
-    pairwise stage, since every neighbour pair reports ``intersects``."""
+    """A 60-part instance of touching unit squares, ten across the strip and
+    six high: the worst case for the pairwise stage, since every neighbour pair
+    reports ``intersects``."""
     parts = []
     placements = []
     for col in range(cols):
@@ -461,7 +476,7 @@ def _grid_instance(path, cols=10, rows=6, side=100.0):
         "challenge": "c001",
         "tier": 1,
         "seed": 60,
-        "strip_width": rows * side,
+        "strip_width": cols * side,
         "rotations_allowed": "free",
         "parts": parts,
     }
@@ -482,8 +497,8 @@ def test_sixty_parts_validate_within_five_seconds(run_tool, tmp_path):
     report = last_json(proc)
     assert report["valid"] is True
     assert report["errors"] == []
-    # The grid really was measured: 10 columns of 100 units, every pair touching.
-    assert report["used_length"] == 1000.0
+    # The grid really was measured: 6 rows of 100 units, every pair touching.
+    assert report["used_height"] == 600.0
     assert report["utilization_pct"] == 100.0
     assert elapsed < 5.0, "validate took {:.2f}s for 60 parts".format(elapsed)
 

@@ -23,6 +23,9 @@ is the sort key on its own, so card order never depends on utilization.  Every
 utilization shown is recomputed here with :mod:`geom` from the instance and the
 solution; none is read out of a file.  The page has no aggregate table and no
 medals: it exists so two attempts at the same instance sit side by side.
+Every card has the same width and ``render.py`` draws every layout of one
+instance at the same scale, so side by side the pictures compare by height
+alone; the cards are bottom-aligned so the strips stand on one common floor.
 
 The provenance line under a card is written relative to the working directory
 (see :func:`display_path`).  A gallery gets committed under ``retros/<cid>/``,
@@ -68,9 +71,9 @@ h1 { font-size: 20px; margin: 0 0 4px; }
 p.sub { margin: 0 0 24px; color: #666; font-size: 13px; }
 h2 { font-size: 15px; margin: 28px 0 10px; padding-bottom: 6px;
      border-bottom: 1px solid #ddd; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.cards { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.cards { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
 .card { background: #fff; border: 1px solid #e2e2de; border-radius: 6px; padding: 10px;
-        flex: 1 1 460px; max-width: 720px; box-sizing: border-box; }
+        flex: 0 1 460px; max-width: 100%; box-sizing: border-box; }
 .card .caption { font-size: 13px; margin-bottom: 8px; }
 .card .caption .who { font-weight: 600; }
 .card .caption .measure { color: #555; }

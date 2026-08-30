@@ -250,12 +250,12 @@ def test_placed_polygons_rejects_non_bijections(tiny_instance, mutate, fragment)
 # --------------------------------------------------------------------------
 
 
-def test_used_length():
-    assert geom.used_length([]) == 0.0
+def test_used_height():
+    assert geom.used_height([]) == 0.0
     a = Polygon([[0, 0], [10, 0], [10, 10], [0, 10]])
-    b = Polygon([[50, 0], [123.5, 0], [123.5, 10], [50, 10]])
-    assert geom.used_length([a, b]) == pytest.approx(123.5)
-    assert geom.used_length([a]) == pytest.approx(10.0)
+    b = Polygon([[0, 50], [10, 50], [10, 123.5], [0, 123.5]])
+    assert geom.used_height([a, b]) == pytest.approx(123.5)
+    assert geom.used_height([a]) == pytest.approx(10.0)
 
 
 def test_utilization_and_format_pct():

@@ -19,7 +19,7 @@ Checks run in this order, each producing errors with a stable code:
 ``INVALID_GEOMETRY``
     A transformed part is not a valid Shapely polygon.
 ``OUTSIDE_STRIP``
-    More than ``TOL_AREA`` of a part lies outside ``[0, inf) x [0, W]``.
+    More than ``TOL_AREA`` of a part lies outside ``[0, W] x [0, inf)``.
 ``OVERLAP``
     Two parts intersect in more than ``TOL_AREA`` of area.
 
@@ -212,20 +212,22 @@ def build_polygons(instance, effective):
     return errors, placed
 
 
-def check_containment(placed, strip_width, used_len):
-    """OUTSIDE_STRIP: area outside ``[0, used_len + 1] x [0, W]``.
+def check_containment(placed, strip_width, used_h):
+    """OUTSIDE_STRIP: area outside ``[0, W] x [0, max(used_h, 0) + 1]``.
 
-    The box is clamped to a positive x extent: a layout whose parts all sit at
-    negative x would otherwise produce a reversed rectangle covering exactly the
-    region the check is meant to reject.
+    The box is a finite stand-in for the strip's open top: every placed part has
+    ``maxy <= used_h``, so nothing lies above it.  The clamp only keeps the box
+    a valid, non-degenerate rectangle when every part sits below the floor
+    (``used_h + 1`` could then be zero or negative); the answer is the same
+    either way.
     """
     if not placed:
         return []
-    strip = box(0.0, 0.0, max(used_len, 0.0) + 1.0, strip_width)
+    strip = box(0.0, 0.0, strip_width, max(used_h, 0.0) + 1.0)
     errors = []
     for part_id, poly in placed:
-        minx, miny, _maxx, maxy = poly.bounds
-        if minx >= 0.0 and miny >= 0.0 and maxy <= strip_width:
+        minx, miny, maxx, _maxy = poly.bounds
+        if minx >= 0.0 and maxx <= strip_width and miny >= 0.0:
             continue
         outside = poly.difference(strip).area
         if outside > geom.TOL_AREA:
@@ -233,7 +235,7 @@ def check_containment(placed, strip_width, used_len):
                 _err(
                     "OUTSIDE_STRIP",
                     "part {!r}: {} area units lie outside the strip "
-                    "[0, inf) x [0, {}]".format(part_id, _fmt_area(outside), strip_width),
+                    "[0, {}] x [0, inf)".format(part_id, _fmt_area(outside), strip_width),
                     part_id=part_id,
                     area=outside,
                 )
@@ -275,7 +277,7 @@ def check_overlaps(placed):
 
 
 def validate(instance, solution):
-    """Run every check.  Returns ``(errors, used_len, utilization_fraction)``."""
+    """Run every check.  Returns ``(errors, used_h, utilization_fraction)``."""
     errors = []
     errors.extend(check_instance_id(instance, solution))
 
@@ -286,25 +288,25 @@ def validate(instance, solution):
     geometry_errors, placed = build_polygons(instance, effective)
     errors.extend(geometry_errors)
 
-    used_len = geom.used_length(poly for _part_id, poly in placed)
+    used_h = geom.used_height(poly for _part_id, poly in placed)
     strip_width = instance["strip_width"]
-    util = geom.utilization(geom.total_area(instance), strip_width, used_len)
+    util = geom.utilization(geom.total_area(instance), strip_width, used_h)
 
-    errors.extend(check_containment(placed, strip_width, used_len))
+    errors.extend(check_containment(placed, strip_width, used_h))
     errors.extend(check_overlaps(placed))
-    return errors, used_len, util
+    return errors, used_h, util
 
 
-def _headline(valid, used_len, util):
+def _headline(valid, used_h, util):
     if valid:
-        return "VALID  used_length={:.3f}  utilization={}%".format(used_len, geom.format_pct(util))
+        return "VALID  used_height={:.3f}  utilization={}%".format(used_h, geom.format_pct(util))
     return "INVALID"
 
 
-def _summary(valid, errors, used_len, util):
+def _summary(valid, errors, used_h, util):
     """The one-liner a consumer may echo verbatim."""
     if valid:
-        return _headline(True, used_len, util)
+        return _headline(True, used_h, util)
     codes = []
     for error in errors:
         if error["code"] not in codes:
@@ -312,17 +314,17 @@ def _summary(valid, errors, used_len, util):
     return "INVALID  {} violation(s): {}".format(len(errors), ", ".join(codes))
 
 
-def _report(valid, instance_id, used_len, util, errors):
-    used_len = round(float(used_len), 3)
+def _report(valid, instance_id, used_h, util, errors):
+    used_h = round(float(used_h), 3)
     util_pct = float(geom.format_pct(util))
     return {
         "valid": valid,
         "instance_id": instance_id,
-        "used_length": used_len,
+        "used_height": used_h,
         "utilization_pct": util_pct,
-        "summary": _summary(valid, errors, used_len, util),
+        "summary": _summary(valid, errors, used_h, util),
         "errors": errors,
-        "measures": {"utilization_pct": util_pct, "used_length": used_len},
+        "measures": {"utilization_pct": util_pct, "used_height": used_h},
     }
 
 
@@ -340,7 +342,7 @@ def _peek_instance_id(path):
 def _emit(report, as_json, stream=None):
     """Print the human lines, then (with ``--json``) the JSON object last."""
     out = stream or sys.stdout
-    print(_headline(report["valid"], report["used_length"], report["utilization_pct"] / 100.0), file=out)
+    print(_headline(report["valid"], report["used_height"], report["utilization_pct"] / 100.0), file=out)
     for error in report["errors"]:
         print("{}: {}".format(error["code"], error["message"]), file=out)
     if as_json:
@@ -408,7 +410,7 @@ def main(argv=None):
         _emit(_report(False, instance_id, 0.0, 0.0, schema_errors), args.as_json)
         return 2
 
-    errors, used_len, util = validate(instance, solution)
+    errors, used_h, util = validate(instance, solution)
 
     # Render before printing so the JSON object stays the last stdout line even
     # if the renderer writes to stdout itself.
@@ -416,7 +418,7 @@ def main(argv=None):
         _render(instance, solution, args.svg, args.labels)
 
     valid = not errors
-    _emit(_report(valid, instance["instance_id"], used_len, util, errors), args.as_json)
+    _emit(_report(valid, instance["instance_id"], used_h, util, errors), args.as_json)
     return 0 if valid else 1
 
 
