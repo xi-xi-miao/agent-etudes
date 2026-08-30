@@ -34,14 +34,17 @@ participants will not know. That is the point of the étude.
 2. **Tiers, not standings.** Tier 1: convex parts. Tier 2: concave (simple) parts. Tier 3: parts
    may contain holes, and placing parts inside other parts' holes is legal and profitable. Tiers
    are personal rungs — climb as far as you get to in your four hours.
-3. **Runtime:** ≤ 60 seconds wall-clock per instance, single process, on your own machine, honour
-   system. Your solver must accept `--time-budget SECONDS` and respect it.
+3. **Runtime:** ≤ 60 seconds wall-clock per instance, on your own machine, honour system: no
+   distributed or multi-machine solving, and interpreter start-up does not count. Your solver must
+   accept `--time-budget SECONDS` and respect it.
 4. **Allowed:** any language; any general-purpose library, including geometry libraries (Shapely,
    Clipper, CGAL bindings, …) and generic optimization libraries (SciPy, OR-Tools CP-SAT, SAT/ILP
    solvers). Web research is allowed and encouraged.
 5. **Banned:** purpose-built irregular-nesting software or ports of it (SVGnest, Deepnest,
    libnest2d / nest2D, commercial nesting tools). The line: primitives and generic solvers yes,
-   ready-made nesting pipelines no.
+   ready-made nesting pipelines no. Importing or copying `challenges/c001/tools/` into your solver
+   — the `geom.py` helpers, `baseline.py` — is allowed: they are primitives and a naive reference,
+   not a nesting pipeline, and the ban is on purpose-built nesting software.
 6. **No flips or mirroring** — the material has a face side. Rotation is free (any real angle) in
    all three tiers.
 7. **Contamination control:** instances come from a seeded generator. Dev instances are committed;
@@ -148,19 +151,24 @@ each resolves its own imports. Run `uv sync --all-groups` once, first.
 ```sh
 uv run python challenges/c001/tools/validate.py \
     challenges/c001/instances/dev/c001-t1-dev-01.json \
-    solutions/c001-t1-dev-01.json --json --svg layout.svg
+    solutions/c001-t1-dev-01.json --json --svg solutions/c001-t1-dev-01.svg
 ```
 
 It prints one human line, `VALID  used_length=4800.621  utilization=44.6%`. `--json` adds a
 machine-readable object as the last stdout line — this is what CI echoes:
 
 ```json
-{"valid": true, "instance_id": "c001-t1-dev-01",
- "summary": "VALID  used_length=4800.621  utilization=44.6%", "errors": [],
- "measures": {"used_length": 4800.621, "utilization_pct": 44.6}}
+{"errors": [], "instance_id": "c001-t1-dev-01",
+ "measures": {"used_length": 4800.621, "utilization_pct": 44.6},
+ "summary": "VALID  used_length=4800.621  utilization=44.6%",
+ "used_length": 4800.621, "utilization_pct": 44.6, "valid": true}
 ```
 
-`--svg FILE` renders the layout while validating, and `--labels` puts part ids on that SVG.
+Those seven keys are the whole object, printed with the keys sorted and wrapped here only for
+width; the top-level `used_length` and `utilization_pct` repeat the two `measures` entries.
+
+`--svg FILE` renders the layout while validating, and `--labels` puts part ids on that SVG
+(without `--svg` it is ignored).
 
 **Render** — omit the solution for a parts-catalog view of the instance:
 
@@ -220,7 +228,10 @@ the round and must be honoured; `--seed N` exists so that one run can be reprodu
   under the same 60-second rule, and commits `solutions/hidden/`. No solver ever runs on anybody
   else's machine. `bash challenges/c001/tools/make_hidden.sh --help` spells out the protocol.
 - **Checkpoints.** Commit `solutions/` **and the rendered SVGs** at milestones during the session —
-  first valid layout, first refinement pass, the last thing that worked. Those intermediate results
+  first valid layout, first refinement pass, the last thing that worked. Render each SVG beside its
+  solution JSON with the same stem (`solutions/<instance_id>.svg`, and `solutions/hidden/<id>.svg`
+  after the hidden round); the collector keeps a rendered SVG only when it sits there, and silently
+  leaves any other one behind. Those intermediate results
   are the material this lab exists to study: the git timeline should show layout quality evolving,
   not a single drop at the end.
 

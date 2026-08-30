@@ -8,6 +8,7 @@ not just membership, which is what keeps the checks honest as validate.py grows.
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -351,6 +352,19 @@ def test_json_object_is_the_last_line_and_has_the_documented_shape(run_tool):
     assert report["instance_id"] == "c001-fixture-squares"
 
 
+def test_readme_json_example_carries_exactly_the_keys_the_tool_emits(run_tool, c001_dir):
+    """The README block is the participant's key list; drift there is the defect."""
+    readme = (c001_dir / "README.md").read_text(encoding="utf-8")
+    blocks = [json.loads(block) for block in re.findall(r"```json\n(.*?)```", readme, re.DOTALL)]
+    # Select on the report's shape, not on a key the assertions below are about,
+    # so a dropped key fails the key-set comparison rather than the selector.
+    documented = [block for block in blocks if "summary" in block]
+    assert len(documented) == 1, "expected exactly one --json example in the c001 README"
+    live = last_json(run(run_tool, STRIP100, sol("solution-strip100-valid.json")))
+    assert set(documented[0]) == set(live)
+    assert set(documented[0].get("measures", {})) == set(live["measures"])
+
+
 def test_without_json_flag_nothing_machine_readable_is_printed(run_tool):
     proc = run_tool("validate", STRIP100, sol("solution-strip100-valid.json"))
     assert proc.returncode == 0
@@ -368,6 +382,13 @@ def test_labels_without_svg_is_a_no_op(run_tool):
     proc = run_tool("validate", STRIP100, sol("solution-strip100-valid.json"), "--labels")
     assert proc.returncode == 0
     assert proc.stdout.startswith("VALID")
+
+
+def test_labels_help_text_says_it_needs_svg():
+    """--labels is ignored without --svg; the help text must say so plainly."""
+    help_text = " ".join(validate.build_parser().format_help().split())  # argparse rewraps
+    assert "--labels label parts with their ids in the rendered SVG" in help_text
+    assert "(ignored unless --svg is given)" in help_text
 
 
 def test_svg_flag_never_changes_the_exit_code(run_tool, tmp_path):

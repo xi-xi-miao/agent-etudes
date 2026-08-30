@@ -377,7 +377,7 @@ def build_parser():
     parser.add_argument(
         "--labels",
         action="store_true",
-        help="label parts with their ids in the rendered SVG (implies nothing without --svg)",
+        help="label parts with their ids in the rendered SVG (ignored unless --svg is given)",
     )
     return parser
 
