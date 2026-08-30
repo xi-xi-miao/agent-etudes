@@ -9,9 +9,10 @@ Usage examples::
     uv run python scripts/lint_annotations.py --session --expect-branch "$BRANCH"
 
 With no positional argument the linter discovers every ``annotations.md``
-underneath ``--root`` (default: the current directory), skipping ``.git/`` and
-``templates/``. Positional arguments may be files *or* directories; a directory
-is discovered the same way.
+underneath ``--root`` (default: the current directory), skipping ``.git/``,
+``.claude/``, ``templates/`` and any nested checkout (a directory with its own
+``.git``). Positional arguments may be files *or* directories; a directory is
+discovered the same way.
 
 Every problem is reported as ``path:line: error: text`` or
 ``path:line: warning: text`` followed by a one line summary. Warnings never fail
@@ -25,7 +26,9 @@ Exit status
 
 The grammar and the frontmatter rules live in :mod:`etudes_lib`; this script
 only adds the checks that need more than a single file: ``--session``
-(the sibling ``session.yaml`` and the three labels shared by both files),
+(the sibling ``session.yaml``, the three labels shared by both files, and --
+as warnings -- the session day and a ``duration_wall_minutes`` that fits the
+annotated timeline),
 ``--repo`` (do the ``@<hex>`` anchors name real commits?) and
 ``--expect-branch`` (do the labels agree with the branch being pushed?).
 
@@ -39,6 +42,7 @@ branch name of whoever happens to be pushing.
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import os
 import re
 import sys
@@ -72,8 +76,10 @@ ANNOTATIONS_NAME = "annotations.md"
 SESSION_NAME = "session.yaml"
 
 #: Directory names never descended into during discovery. ``templates/`` holds
-#: the blank annotation template, which is documentation rather than a session.
-SKIP_DIRS = frozenset({".git", "templates"})
+#: the blank annotation template, which is documentation rather than a session;
+#: ``.claude/`` is agent scratch (local settings, and worktrees of this very
+#: repository).
+SKIP_DIRS = frozenset({".git", ".claude", "templates"})
 
 #: Directory holding an attempt's session artifacts on an attempt branch.
 #: ``--expect-branch`` only applies to annotations found inside one.
@@ -133,13 +139,42 @@ def _show(value) -> str:
     return repr(value) if isinstance(value, str) else str(value)
 
 
+def _iso_day(value) -> Optional[str]:
+    """``value`` as an ISO ``YYYY-MM-DD`` string, or ``None`` if it is not one.
+
+    YAML turns an unquoted ``2026-09-12`` into a :class:`datetime.date` and a
+    quoted one into a string, so the two files can hold the same day in two
+    types; both sides are normalised before they are compared.
+    """
+    if isinstance(value, (_dt.date, _dt.datetime)):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, str):
+        try:
+            return _dt.date.fromisoformat(value.strip()[:10]).isoformat()
+        except ValueError:
+            return None
+    return None
+
+
+def _clock(minutes: int) -> str:
+    """``232`` -> ``+3:52``, the way an annotation timestamp is written."""
+    return f"+{minutes // 60}:{minutes % 60:02d}"
+
+
 # --------------------------------------------------------------------------
 # Discovery
 # --------------------------------------------------------------------------
 
 
 def discover(root) -> list[Path]:
-    """Every ``annotations.md`` under ``root``, skipping ``.git/``/``templates/``.
+    """Every ``annotations.md`` under ``root``, skipping :data:`SKIP_DIRS`.
+
+    Nested checkouts are skipped too: any directory below ``root`` that carries
+    its own ``.git`` entry (a directory for a second clone, a file for a git
+    worktree) belongs to another checkout, and linting it would judge somebody
+    else's session -- under ``--expect-branch``, against the branch name of
+    whoever happens to be running the check. ``root`` itself is never tested,
+    so a run from a repository root still finds everything in it.
 
     The list is sorted so that output is identical from run to run and from
     machine to machine.
@@ -147,7 +182,12 @@ def discover(root) -> list[Path]:
     root = Path(root)
     found: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+        here = Path(dirpath)
+        dirnames[:] = sorted(
+            d
+            for d in dirnames
+            if d not in SKIP_DIRS and not (here / d / ".git").exists()
+        )
         for name in filenames:
             # ``annotations.md`` plus reviewer copies named
             # ``<reviewer>.annotations.md`` (cross-annotation, TAXONOMY.md §7).
@@ -221,14 +261,78 @@ def branch_check_applies(path: Path, explicit: set[str]) -> bool:
 # --------------------------------------------------------------------------
 
 
+def _check_timeline(
+    ann_path: Path,
+    meta: dict,
+    moves: list,
+    data: dict,
+    session_path: Path,
+    key_lines: dict[str, int],
+) -> list[LintMessage]:
+    """Warn when the two files disagree about *when* the session happened.
+
+    Warnings, never errors: both numbers are the participant's own honest
+    report and a wide gap can be genuine (a session paused overnight, say).
+    But ``duration_wall_minutes`` sizes the ASCII phase timeline in
+    ``scripts/stats.py``, so a duration that cannot hold the annotated moves --
+    or that dwarfs them -- is worth a second look while the session is still
+    fresh.
+    """
+    messages: list[LintMessage] = []
+
+    ann_day = _iso_day(meta.get("session_date"))
+    session_day = _iso_day(data.get("date"))
+    if ann_day is not None and session_day is not None and ann_day != session_day:
+        messages.append(
+            _warning(
+                ann_path,
+                key_lines.get("session_date", 1),
+                f"session_date is {ann_day} here but date is {session_day} in "
+                f"{session_path}; the two files describe one session",
+            )
+        )
+
+    duration = data.get("duration_wall_minutes")
+    if isinstance(duration, bool) or not isinstance(duration, (int, float)):
+        return messages  # already an error from validate_session_yaml
+    if not moves:
+        return messages
+    last = max(mv.minutes for mv in moves)
+    if duration < last:
+        messages.append(
+            _warning(
+                session_path,
+                1,
+                f"duration_wall_minutes is {duration} but the annotations run to "
+                f"{_clock(last)} ({last} minutes); the session cannot be shorter "
+                "than the moves it records",
+            )
+        )
+    elif last > 0 and duration > 3 * last:
+        messages.append(
+            _warning(
+                session_path,
+                1,
+                f"duration_wall_minutes is {duration}, more than three times the "
+                f"annotated span of {_clock(last)} ({last} minutes); check the "
+                "duration, or say in notes what the untracked time was",
+            )
+        )
+    return messages
+
+
 def _check_session(
-    ann_path: Path, meta: dict, key_lines: dict[str, int]
+    ann_path: Path, meta: dict, moves: list, key_lines: dict[str, int]
 ) -> tuple[list[LintMessage], dict]:
     """Validate the sibling ``session.yaml`` and cross-check the shared labels."""
     session_path = ann_path.parent / SESSION_NAME
     if not session_path.is_file() and ann_path.parent.name == "reviews":
         # A reviewer copy under results/<cid>/<p>/<n>/reviews/ shares the
-        # session.yaml of the attempt it annotates, one directory up.
+        # session.yaml of the attempt it annotates, one directory up -- so its
+        # participant/challenge/attempt name that attempt, not the reviewer.
+        # The reviewer's own handle lives in the filename, and optionally in an
+        # extra `annotator:` frontmatter key: unknown frontmatter keys are
+        # accepted everywhere, so that costs nothing here.
         session_path = ann_path.parent.parent / SESSION_NAME
     if not session_path.is_file():
         return (
@@ -270,6 +374,10 @@ def _check_session(
                     "agree",
                 )
             )
+
+    messages.extend(
+        _check_timeline(ann_path, meta, moves, data, session_path, key_lines)
+    )
     return messages, data
 
 
@@ -368,7 +476,9 @@ def check_file(
     session_path = ann_path.parent / SESSION_NAME
 
     if session:
-        session_messages, session_data = _check_session(ann_path, meta, key_lines)
+        session_messages, session_data = _check_session(
+            ann_path, meta, moves, key_lines
+        )
         messages.extend(session_messages)
 
     if expect_branch:
@@ -430,7 +540,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "also require and validate the session.yaml next to each "
             "annotations.md, and check that both files agree on participant, "
-            "challenge and attempt"
+            "challenge and attempt (errors), on the session day and on a "
+            "duration that fits the annotated timeline (warnings)"
         ),
     )
     parser.add_argument(

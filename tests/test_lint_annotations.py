@@ -401,10 +401,12 @@ def test_unresolvable_anchors_are_warnings_only(tmp_path, capsys, tmp_git_repo):
     assert rc == 0, out
     assert errors_in(out) == []
     reported = warnings_in(out)
-    # the example carries six @hex anchors, none of which exist anywhere
-    assert len(reported) == 6, out
+    # The example carries five @hex anchors, none of which exist anywhere. Its
+    # +0:00 line deliberately carries a transcript anchor instead: TAXONOMY.md
+    # section 8 puts the origin before any commit exists.
+    assert len(reported) == 5, out
     assert all("does not resolve to a commit" in ln for ln in reported)
-    assert "0 error(s), 6 warning(s)" in out
+    assert "0 error(s), 5 warning(s)" in out
 
 
 def test_transcript_anchors_are_never_resolved(tmp_path, capsys, tmp_git_repo):
@@ -694,3 +696,166 @@ def test_reviewer_copies_are_discovered_and_share_the_parent_session(tmp_path):
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "2 file(s)" in proc.stdout + proc.stderr
+
+
+# --------------------------------------------------------------------------
+# Discovery does not wander into another checkout
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("git_entry", ["dir", "file"], ids=["clone", "worktree"])
+def test_nested_checkouts_are_skipped(tmp_path, capsys, git_entry):
+    """A second clone (.git directory) or worktree (.git file) is not ours to lint."""
+    write_session_dir(tmp_path, name="session")
+    nested = tmp_path / "nested-checkout"
+    write_session_dir(nested, name="session")
+    if git_entry == "dir":
+        (nested / ".git").mkdir()
+    else:
+        (nested / ".git").write_text("gitdir: /elsewhere/.git/worktrees/x\n", encoding="utf-8")
+
+    rc = lint.main(["--root", str(tmp_path), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    assert "1 file(s), 0 error(s), 0 warning(s)" in out
+    assert "nested-checkout" not in out
+
+
+def test_claude_directory_is_skipped(tmp_path, capsys):
+    """.claude/ is agent scratch: local settings, and worktrees of this repository."""
+    write_session_dir(tmp_path / ".claude" / "worktrees" / "playtest", name="session")
+    write_session_dir(tmp_path, name="session")
+
+    rc = lint.main(["--root", str(tmp_path), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    assert "1 file(s), 0 error(s), 0 warning(s)" in out
+    assert ".claude" not in out
+
+
+# --------------------------------------------------------------------------
+# --session: the two files must describe one session, not just one attempt
+# --------------------------------------------------------------------------
+
+
+def test_duration_shorter_than_the_annotated_timeline_warns(tmp_path, capsys):
+    session = EXAMPLE_SESSION.replace(
+        "duration_wall_minutes: 235", "duration_wall_minutes: 60"
+    )
+    d = write_session_dir(tmp_path, session=session)
+
+    rc = lint.main([str(d / "annotations.md"), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    assert errors_in(out) == []
+    reported = warnings_in(out)
+    assert len(reported) == 1, reported
+    assert "duration_wall_minutes is 60" in reported[0]
+    assert "+3:52" in reported[0]
+
+
+def test_duration_far_longer_than_the_annotated_timeline_warns(tmp_path, capsys):
+    session = EXAMPLE_SESSION.replace(
+        "duration_wall_minutes: 235", "duration_wall_minutes: 900"
+    )
+    d = write_session_dir(tmp_path, session=session)
+
+    rc = lint.main([str(d / "annotations.md"), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    reported = warnings_in(out)
+    assert len(reported) == 1, reported
+    assert "more than three times" in reported[0]
+
+
+def test_a_duration_that_fits_the_timeline_is_silent(tmp_path, capsys):
+    """The shipped example: 235 minutes against a timeline ending at +3:52."""
+    d = write_session_dir(tmp_path)
+
+    rc = lint.main([str(d / "annotations.md"), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    assert warnings_in(out) == []
+
+
+def test_annotations_without_moves_never_warn_about_the_duration(tmp_path, capsys):
+    """Nothing to compare against yet -- a mid-session push must stay quiet."""
+    head = EXAMPLE_ANNOTATIONS.split("\n+0:00")[0] + "\n"
+    d = write_session_dir(tmp_path, annotations=head)
+
+    rc = lint.main([str(d / "annotations.md"), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    assert warnings_in(out) == []
+
+
+def test_session_date_disagreeing_with_the_session_yaml_date_warns(tmp_path, capsys):
+    annotations = EXAMPLE_ANNOTATIONS.replace(
+        "session_date: 2026-09-12", "session_date: 2026-09-13"
+    )
+    d = write_session_dir(tmp_path, annotations=annotations)
+
+    rc = lint.main([str(d / "annotations.md"), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    assert errors_in(out) == []
+    reported = warnings_in(out)
+    assert len(reported) == 1, reported
+    assert "session_date is 2026-09-13" in reported[0]
+    assert "date is 2026-09-12" in reported[0]
+
+
+def test_the_same_day_written_two_ways_is_not_a_disagreement(tmp_path, capsys):
+    """YAML gives an unquoted date a date type and a quoted one a string."""
+    annotations = EXAMPLE_ANNOTATIONS.replace(
+        "session_date: 2026-09-12", 'session_date: "2026-09-12"'
+    )
+    d = write_session_dir(tmp_path, annotations=annotations)
+
+    rc = lint.main([str(d / "annotations.md"), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    assert warnings_in(out) == []
+
+
+def test_reviewer_copy_may_carry_an_annotator_key(tmp_path, capsys):
+    """A reviews/ copy keeps the *subject's* participant; the reviewer's handle is
+    an optional extra frontmatter key (and the filename), never a relabelling."""
+    attempt = tmp_path / "results" / "c001" / "example" / "1"
+    (attempt / "reviews").mkdir(parents=True)
+    (attempt / "annotations.md").write_text(EXAMPLE_ANNOTATIONS, encoding="utf-8")
+    (attempt / "session.yaml").write_text(EXAMPLE_SESSION, encoding="utf-8")
+    review = EXAMPLE_ANNOTATIONS.replace(
+        "participant: example", "participant: example\nannotator: bob", 1
+    )
+    (attempt / "reviews" / "bob.annotations.md").write_text(review, encoding="utf-8")
+
+    rc = lint.main(["--root", str(tmp_path), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    assert "2 file(s), 0 error(s), 0 warning(s)" in out
+
+
+def test_a_reviewer_copy_relabelled_with_the_reviewer_is_still_an_error(tmp_path, capsys):
+    """The cross-check is unchanged: participant names the annotated attempt."""
+    attempt = tmp_path / "results" / "c001" / "example" / "1"
+    (attempt / "reviews").mkdir(parents=True)
+    (attempt / "annotations.md").write_text(EXAMPLE_ANNOTATIONS, encoding="utf-8")
+    (attempt / "session.yaml").write_text(EXAMPLE_SESSION, encoding="utf-8")
+    review = EXAMPLE_ANNOTATIONS.replace("participant: example", "participant: bob")
+    (attempt / "reviews" / "bob.annotations.md").write_text(review, encoding="utf-8")
+
+    rc = lint.main(["--root", str(tmp_path), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 1, out
+    assert any("participant is 'bob'" in ln for ln in errors_in(out)), out
