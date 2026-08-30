@@ -1,6 +1,6 @@
 """End-to-end round trip: ``demo.sh`` must carry an instance all the way from
 the generator to a validated, rendered layout, and must measure every committed
-dev instance on the way (HANDOFF-CHALLENGE section 11.7).
+dev instance on the way -- the round trip required by ``challenges/c001/SPEC.md``.
 
 The script is exercised as a script -- via ``bash``, into a throwaway output
 directory -- because that is how ``make demo CHALLENGE=c001`` and the challenge

@@ -79,7 +79,9 @@ __all__ = [
 WILDCARD_FAMILY = "Wildcard"
 FAMILY_HEADINGS = tuple(FAMILIES) + (WILDCARD_FAMILY,)
 
-#: One character of an ASCII timeline covers this many minutes (HANDOFF 6.3).
+#: One character of an ASCII timeline covers this many minutes. This constant
+#: is the definition of the repository's timeline resolution; everything below
+#: (and every timeline in a rendered report) derives from it.
 MINUTES_PER_CELL = 5
 
 #: Hard cap on a timeline row (100 hours) so a typo in duration_wall_minutes

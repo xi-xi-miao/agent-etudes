@@ -6,10 +6,10 @@ collect) is developed against. If it stops demonstrating a part of the
 vocabulary, that part quietly loses its only worked example -- and its only
 integration test.
 
-This module is HANDOFF section 10 acceptance criterion 6: all four layers
-(phases, moves, glyphs, motifs), a wildcard move, a stance marker, both anchor
-kinds, at least one motif -- and the whole thing has to lint clean with
-``--session``.
+So the example must demonstrate all four layers of TAXONOMY.md (phases, moves,
+glyphs, motifs), a wildcard move, a stance marker, both anchor kinds, at least
+one motif -- and the whole thing has to lint clean with ``--session``. That is
+what this module holds it to.
 
 It also guards the other pair of shipped artifacts a participant copies,
 ``templates/annotations.md`` and ``templates/session.yaml``. Discovery skips

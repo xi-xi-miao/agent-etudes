@@ -336,7 +336,7 @@ def test_pack_honours_a_rotation_list_end_to_end(tmp_path, tools_dir, run_tool):
     ``choose_orientation`` has its own unit test, but the interesting failure is
     a plumbing one: if ``pack`` stopped forwarding ``allowed`` the default of
     ``"free"`` would silently re-admit 0 deg and the validator would answer
-    ROTATION_NOT_ALLOWED.  Section 4.1 of the handoff makes the list binding, so
+    ROTATION_NOT_ALLOWED.  SPEC.md section 4.1 makes the list binding, so
     it is checked through both CLIs.
     """
     require_validator(tools_dir)

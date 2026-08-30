@@ -11,9 +11,9 @@
 # other hit fails the check.
 #
 # Excluded from the search: .git/, .venv/, __pycache__/, .pytest_cache/,
-# node_modules/, .claude/ (agent scratch: local settings and worktrees),
-# docs/handoffs/ (the original briefs, kept verbatim for provenance) and
-# uv.lock. Binary files are skipped with grep -I.
+# node_modules/, .claude/ (agent scratch: local settings and worktrees) and
+# uv.lock. Binary files are skipped with grep -I. Nothing under docs/ is
+# exempt: every document in the tree is held to the vocabulary rule.
 #
 # Also excluded: anything under a nested checkout -- a second clone or a git
 # worktree living inside ROOT, recognised by its own .git entry (a directory
@@ -64,13 +64,11 @@ hits="$(grep -rniwE "$pattern" . -I \
   --exclude-dir=.pytest_cache \
   --exclude-dir=node_modules \
   --exclude-dir=.claude \
-  --exclude-dir=handoffs \
   --exclude=uv.lock 2>/dev/null || true)"
 
-# --exclude-dir matches a directory's name, not its path, so drop anything
-# under docs/handoffs/ defensively; also drop the empty line the quoting of an
-# empty result would otherwise produce.
-hits="$(printf '%s\n' "$hits" | grep -v '^[[:space:]]*$' | grep -v '^\./docs/handoffs/' || true)"
+# Drop the empty line that quoting an empty result would otherwise produce
+# (printf '%s\n' "" emits one), so a clean tree stays detectably clean.
+hits="$(printf '%s\n' "$hits" | grep -v '^[[:space:]]*$' || true)"
 
 # Nested checkouts: every directory below ROOT that carries its own .git entry.
 # ROOT's own .git is at depth 1 and is left alone. The prune list is applied to

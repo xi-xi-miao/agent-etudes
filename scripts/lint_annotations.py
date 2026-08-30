@@ -246,7 +246,8 @@ def branch_check_applies(path: Path, explicit: set[str]) -> bool:
     """Should ``--expect-branch`` be applied to this file?
 
     Only to annotations that belong to the branch being pushed. On an attempt
-    branch those live in ``session/annotations.md`` (plan section 2), so that is
+    branch those live in ``session/annotations.md`` (the attempt-branch layout in
+    CONTRIBUTING.md), so that is
     the rule for files found by searching -- otherwise CI, which lints the whole
     tree, would check ``examples/example-session/`` and every already collected
     attempt under ``results/`` against the pusher's branch name and fail on all

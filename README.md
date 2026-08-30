@@ -65,7 +65,7 @@ scripts/             shared, challenge-agnostic tooling (linter, collector, stat
 tests/               tests for the shared layer
 results/             collected session artifacts, results/<cid>/<participant>/<n>/
 retros/              the stored record of each round: retro.md, stats.txt, gallery.html
-docs/                adding-a-challenge.md, references.md, handoffs/ (original specs)
+docs/                adding-a-challenge.md, references.md
 ```
 
 ## Where to go next

@@ -90,14 +90,16 @@ DEFAULT_PARTS = 40
 
 #: Instance target total net area is drawn uniformly from this interval --
 #: at the default part count.  With another ``--parts`` the band is scaled by
-#: ``parts / DEFAULT_PARTS``, since the interval is the plan's figure *for a
-#: 40-part instance* and a 12-part instance made of 40 parts' worth of
+#: ``parts / DEFAULT_PARTS``, since the interval SPEC.md section 6.2 states is
+#: the figure *for a 40-part instance*, and a 12-part instance made of 40
+#: parts' worth of
 #: material could not satisfy the diameter cap.  The factor is exactly 1.0 for
 #: the committed dev set, so this generalisation moves no coordinate there.
 TARGET_AREA_MIN = 2.0e6
 TARGET_AREA_MAX = 3.0e6
 
-#: Size bands (net area).  Plan section 6: the handoff's bands scaled x2.8.
+#: Size bands (net area), SPEC.md section 6.2: the originally specified bands
+#: scaled x2.8.
 BAND_LARGE = (8.0e4, 17.0e4)
 BAND_MEDIUM = (2.0e4, 8.0e4)
 BAND_SMALL = (3.0e3, 2.0e4)
@@ -128,13 +130,13 @@ MAX_HOLE_AREA_FRACTION = 0.14
 HOLE_HOST_FRACTION = 0.30
 
 #: A fit hole's circumradius is at least this multiple of the small part's
-#: bounding-circle radius (the plan's floor) and, on top of that, wide enough
+#: bounding-circle radius (a fixed floor) and, on top of that, wide enough
 #: that its *inradius* clears the part by FIT_INRADIUS_MARGIN.
 HOLE_FIT_FACTOR = 1.15
 FIT_INRADIUS_MARGIN = 6.0
 
 #: Fit holes are always regular octagons: eight sides give the best
-#: inradius-to-circumradius ratio in the 4-8 range the plan allows, so the
+#: inradius-to-circumradius ratio in the 4-8 range considered, so the
 #: hole a given small part needs is as small (and as easy to host) as
 #: possible.  A square would need a circumradius 1.41x the part's bounding
 #: circle instead of 1.15x -- three times the hole area.
@@ -680,7 +682,7 @@ def _fit_hole_radius(part_ring):
     The part, rotated about its bounding-box centre, never leaves the disc of
     radius ``R_p`` around that centre, so a regular hole whose *inradius*
     ``R_h * cos(pi / n)`` exceeds ``R_p`` by a margin contains it at every
-    angle.  ``HOLE_FIT_FACTOR`` is the plan's floor; the inradius term is what
+    angle.  ``HOLE_FIT_FACTOR`` is the fixed floor; the inradius term is what
     actually makes the sweep pass.
     """
     r_part = _circumradius(part_ring)

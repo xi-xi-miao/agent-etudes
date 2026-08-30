@@ -399,7 +399,7 @@ class Move(NamedTuple):
     anchor: Optional[str]
 
 
-#: One anchored regex for the whole grammar (plan section 4). Each field is
+#: One anchored regex for the whole grammar of TAXONOMY.md. Each field is
 #: captured by *shape* only; the concrete vocabularies are checked afterwards
 #: so that a bad token yields a precise message instead of "does not match".
 LINE_RE = re.compile(
@@ -714,7 +714,8 @@ def parse_annotations_file(path: Any) -> tuple[dict, list[Move], list[LintMessag
     report all of them in one pass. Callers decide what is fatal; by
     convention only ``level == "error"`` fails a build.
 
-    Rules applied here (plan section 4): required frontmatter keys and their
+    Rules applied here (the annotation grammar of TAXONOMY.md): required
+    frontmatter keys and their
     types, the line grammar, non-decreasing timestamps (equal is fine), a
     mandatory comment on every ``X-*`` move and every ``??`` glyph, and a
     warning when ``taxonomy_version`` is unquoted or does not match.
@@ -792,7 +793,11 @@ def parse_annotations_file(path: Any) -> tuple[dict, list[Move], list[LintMessag
 
 
 def validate_session_yaml(data: Any, path: Any) -> list[LintMessage]:
-    """Check a loaded ``session.yaml`` against the schema in HANDOFF section 5.
+    """Check a loaded ``session.yaml`` against the schema in ``templates/session.yaml``.
+
+    That template is the schema: its comments name every required key and the
+    shape expected of it, and it is the file a participant copies (CONTRIBUTING
+    step 2).
 
     Unknown extra keys are accepted on purpose -- participants are encouraged
     to record more, not less. All messages carry line 1: YAML loading loses

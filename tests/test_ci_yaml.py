@@ -1,4 +1,4 @@
-"""CI wiring checks (HANDOFF §10.5): the workflow parses and the required jobs exist.
+"""CI wiring checks: ``.github/workflows/ci.yml`` parses and its required jobs exist.
 
 It also pins the one place a contributor is told they can reproduce CI locally:
 ``make lint`` must invoke the linter with the same flags as the lint-annotations

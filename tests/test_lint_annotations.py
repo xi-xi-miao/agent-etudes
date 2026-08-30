@@ -5,7 +5,9 @@ command line (a subprocess, so exit codes and stdout/stderr routing are the
 ones a participant and CI actually see) and once by calling ``main()``
 in-process (fast, and it keeps the tracebacks readable while developing).
 
-HANDOFF section 10 acceptance criteria 1 and 2 are covered by
+The two standing requirements on the linter -- that a well-formed session in
+the annotation grammar of TAXONOMY.md lints clean, and that each way of
+breaking that grammar is caught -- are covered by
 :func:`test_example_lints_clean_via_cli` and the ``CORRUPTIONS`` table.
 """
 
@@ -620,7 +622,7 @@ def _attempt_tree(tmp_path: Path) -> Path:
 
 
 def test_expect_branch_ignores_the_example_and_collected_attempts(tmp_path, capsys):
-    """The CI invocation from plan section 5 must not fail on unrelated files."""
+    """The CI invocation in .github/workflows/ci.yml must not fail on unrelated files."""
     _attempt_tree(tmp_path)
     rc = lint.main(
         ["--root", str(tmp_path), "--session", "--expect-branch", "attempt/c001/example/1"]
