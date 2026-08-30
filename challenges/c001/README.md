@@ -306,11 +306,11 @@ face on day one. Measured by `make demo CHALLENGE=c001` over the 15 committed de
 | c001-t2-dev-03 | 51.0 | 5683.311 |
 | c001-t2-dev-04 | 45.5 | 5371.729 |
 | c001-t2-dev-05 | 47.6 | 4844.388 |
-| c001-t3-dev-01 | 48.4 | 5324.822 |
-| c001-t3-dev-02 | 48.7 | 6045.376 |
-| c001-t3-dev-03 | 48.6 | 4948.696 |
-| c001-t3-dev-04 | 48.4 | 4320.205 |
-| c001-t3-dev-05 | 47.9 | 4228.898 |
+| c001-t3-dev-01 | 48.4 | 5324.295 |
+| c001-t3-dev-02 | 48.7 | 6045.049 |
+| c001-t3-dev-03 | 48.6 | 4948.623 |
+| c001-t3-dev-04 | 48.4 | 4320.200 |
+| c001-t3-dev-05 | 47.8 | 4229.758 |
 
 Range 44.6–51.0%, mean 47.7%. Beating it is not the achievement — a solver that reasons about the
 actual outlines should clear it comfortably in the first hour. The numbers come out of the demo

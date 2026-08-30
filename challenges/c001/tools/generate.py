@@ -19,9 +19,10 @@ always produces the same geometry at a fixed ``--strip-width`` (the width
 feeds the diameter cap, which decides which shapes are rejected, so it is
 part of the determinism domain even though it is not in the seed key).
 
-Shapely is used only as an oracle (validity, containment, the maximum
-inscribed circle used to *choose* a hole centre).  Every emitted coordinate is
-computed with pure-Python vertex arithmetic and rounded to 3 decimals.
+Shapely is used only as a yes/no oracle (validity, containment).  Every
+emitted coordinate -- including the hole centres, found by a pure-Python
+inscribed-circle grid search -- is computed with pure-Python vertex arithmetic
+and rounded to 3 decimals, so the output does not depend on the GEOS build.
 
 Pipeline (one-way stages; each stage only ever revises its own output)
 ---------------------------------------------------------------------
@@ -70,12 +71,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import geom  # noqa: E402  (path shim above must run first)
 
-from shapely.geometry import Point, Polygon  # noqa: E402
-
-try:  # Shapely >= 2.1
-    from shapely import maximum_inscribed_circle as _shapely_mic
-except ImportError:  # pragma: no cover - exercised only on Shapely 2.0
-    _shapely_mic = None
+from shapely.geometry import Polygon  # noqa: E402
 
 
 # --------------------------------------------------------------------------
@@ -148,10 +144,12 @@ FIT_HOLES_REQUIRED = 2
 SWEEP_STEP_DEG = 10
 SWEEP_EROSION = 1.0
 
-#: Explicit tolerance for the maximum-inscribed-circle oracle -- letting GEOS
-#: derive one from the geometry's size would make hole centres depend on the
-#: part's magnitude in a way that is harder to reason about.
-MIC_TOLERANCE = 0.01
+#: Resolution of the pure-Python inscribed-centre search (grid cells per axis,
+#: then halving refinements).  Coarser than GEOS's maximum_inscribed_circle,
+#: but identical on every platform -- GEOS builds differ between macOS and
+#: Linux wheels and moved a tier-3 hole centre in the third decimal.
+INSCRIBED_GRID = 32
+INSCRIBED_REFINEMENTS = 8
 
 #: Retry budgets.  All three are generous; hitting one is a bug, not bad luck.
 MAX_SHAPE_TRIES = 240
@@ -608,57 +606,97 @@ def _build_exterior(st, tier, target_area, scale, diameter_cap):
 # --------------------------------------------------------------------------
 
 
-def _inscribed_center(poly):
-    """Centre and radius of the largest circle inscribed in ``poly``.
+def _point_in_ring(x, y, ring):
+    """Even-odd ray cast, pure Python."""
+    inside = False
+    n = len(ring)
+    j = n - 1
+    for i in range(n):
+        xi, yi = ring[i]
+        xj, yj = ring[j]
+        if (yi > y) != (yj > y):
+            x_cross = xi + (y - yi) * (xj - xi) / (yj - yi)
+            if x < x_cross:
+                inside = not inside
+        j = i
+    return inside
 
-    Shapely (GEOS) is the oracle here: it only *chooses* a location, and the
-    centre is rounded to 3 decimals before any emitted coordinate is derived
-    from it, so the hole ring itself is built in pure Python.
+
+def _point_segment_distance(x, y, ax, ay, bx, by):
+    dx, dy = bx - ax, by - ay
+    length_sq = dx * dx + dy * dy
+    if length_sq == 0.0:
+        return math.hypot(x - ax, y - ay)
+    t = ((x - ax) * dx + (y - ay) * dy) / length_sq
+    if t < 0.0:
+        t = 0.0
+    elif t > 1.0:
+        t = 1.0
+    return math.hypot(x - (ax + t * dx), y - (ay + t * dy))
+
+
+def _distance_to_rings(x, y, rings):
+    best = math.inf
+    for ring in rings:
+        n = len(ring)
+        for i in range(n):
+            ax, ay = ring[i]
+            bx, by = ring[(i + 1) % n]
+            d = _point_segment_distance(x, y, ax, ay, bx, by)
+            if d < best:
+                best = d
+    return best
+
+
+def _inscribed_center(exterior, holes=()):
+    """Centre and clearance of (approximately) the largest circle inscribed in
+    the polygon ``exterior`` minus ``holes``.
+
+    Pure Python on purpose: a grid search over the bounding box followed by
+    ``INSCRIBED_REFINEMENTS`` halvings, using ray-cast containment and
+    point-to-segment distances.  The result is the same on every platform,
+    which GEOS's ``maximum_inscribed_circle`` is not.  Ties resolve to the
+    first candidate in scan order.  Returns ``(cx, cy, clearance)`` with the
+    centre rounded to 3 decimals, or ``None`` if no grid point is inside.
     """
-    if _shapely_mic is not None:
-        line = _shapely_mic(poly, tolerance=MIC_TOLERANCE)
-        if line.is_empty:
-            return None
-        cx, cy = line.coords[0]
-        return _r3(cx), _r3(cy), line.length
-    sys.stderr.write(
-        "generate.py: shapely has no maximum_inscribed_circle (needs 2.1); "
-        "falling back to a grid search, which places tier-3 holes elsewhere "
-        "and will NOT reproduce the committed instances byte for byte\n"
-    )
-    return _inscribed_center_fallback(poly)
+    rings = [exterior] + list(holes)
+    minx, miny, maxx, maxy = geom.bbox(exterior)
 
+    def inside(x, y):
+        if not _point_in_ring(x, y, exterior):
+            return False
+        return not any(_point_in_ring(x, y, h) for h in holes)
 
-def _inscribed_center_fallback(poly, grid=24, refinements=6):
-    """Deterministic grid search, used only on Shapely releases without
-    ``maximum_inscribed_circle``."""
-    minx, miny, maxx, maxy = poly.bounds
-    boundary = poly.boundary
-    best = None
+    grid = INSCRIBED_GRID
     step_x = (maxx - minx) / (grid + 1)
     step_y = (maxy - miny) / (grid + 1)
+    best = None
     for i in range(1, grid + 1):
         for j in range(1, grid + 1):
-            p = Point(minx + i * step_x, miny + j * step_y)
-            if not poly.contains(p):
+            x = minx + i * step_x
+            y = miny + j * step_y
+            if not inside(x, y):
                 continue
-            d = boundary.distance(p)
+            d = _distance_to_rings(x, y, rings)
             if best is None or d > best[2]:
-                best = (p.x, p.y, d)
+                best = (x, y, d)
     if best is None:
         return None
-    for _ in range(refinements):
+    for _ in range(INSCRIBED_REFINEMENTS):
         step_x *= 0.5
         step_y *= 0.5
         cx, cy, cd = best
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
-                p = Point(cx + dx * step_x, cy + dy * step_y)
-                if not poly.contains(p):
+                if dx == 0 and dy == 0:
                     continue
-                d = boundary.distance(p)
+                x = cx + dx * step_x
+                y = cy + dy * step_y
+                if not inside(x, y):
+                    continue
+                d = _distance_to_rings(x, y, rings)
                 if d > cd:
-                    best = (p.x, p.y, d)
+                    best = (x, y, d)
                     cd = d
     return _r3(best[0]), _r3(best[1]), best[2]
 
@@ -711,7 +749,7 @@ def _fit_feasible(exterior, part_ring, diameter_cap):
     growth = math.sqrt(exterior_area / (exterior_area - hole_area))
     if geom.point_set_diameter(exterior) * growth > diameter_cap:
         return False
-    spot = _inscribed_center(Polygon(exterior))
+    spot = _inscribed_center(exterior)
     return spot is not None and spot[2] >= radius + HOLE_WALL
 
 
@@ -721,7 +759,7 @@ def _fit_hole_ring(st, exterior, holes, part_ring):
     phase = st.uniform(0.0, 2.0 * math.pi / FIT_HOLE_SIDES)
     if radius * math.cos(math.pi / FIT_HOLE_SIDES) - r_part < 2.0:
         return None
-    spot = _inscribed_center(Polygon(exterior, holes))
+    spot = _inscribed_center(exterior, holes)
     if spot is None:
         return None
     cx, cy, room = spot
@@ -735,7 +773,7 @@ def _fit_hole_ring(st, exterior, holes, part_ring):
 
 def _plain_hole_ring(st, exterior, holes):
     """A convex, slightly irregular hole placed at the widest spot left."""
-    spot = _inscribed_center(Polygon(exterior, holes))
+    spot = _inscribed_center(exterior, holes)
     if spot is None:
         return None
     cx, cy, room = spot

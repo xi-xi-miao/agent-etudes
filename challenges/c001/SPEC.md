@@ -235,10 +235,10 @@ Every random draw comes from one `random.Random` seeded with the string
 internals may change between CPython releases. `--id` and `--out` are labels and never touch the
 stream, so the same `(tier, seed, parts)` at the same `--strip-width` always produces the same
 geometry, byte for byte. `--strip-width` is in the determinism domain though not in the seed key:
-it sets the diameter cap, which decides which candidate shapes are rejected. One boundary: choosing
-a hole's centre uses Shapely's `maximum_inscribed_circle`, which needs Shapely 2.1; on 2.0 the tool
-warns on stderr and falls back to a grid search that places tier-3 holes elsewhere, so tier-3
-instances will **not** reproduce byte for byte.
+it sets the diameter cap, which decides which candidate shapes are rejected. Hole centres (tier 3)
+are chosen by a pure-Python inscribed-circle grid search rather than GEOS's
+`maximum_inscribed_circle`, so the output does not depend on the Shapely/GEOS build either: the
+same command reproduces every tier on macOS, Linux and Windows.
 
 ### 6.2 Size mix and totals
 
