@@ -15,9 +15,10 @@ Moves are aligned by their elapsed timestamp. Two annotators are under no
 obligation to list the moves of one minute in the same order, so lines that
 share a timestamp are paired by what they say -- same move and glyph first,
 then same move, then same glyph -- and whatever is left over is reported as
-unpaired rather than guessed at. The output is per-field agreement (phase,
-stance, move, glyph) as counts and percentages, then the disagreements, then
-the lines that found no partner.
+unpaired rather than guessed at. The output is five agreement rows (phase,
+stance, move, glyph, and ``all three`` -- phase, move and glyph together) as
+counts and percentages, then the disagreements, then the lines that found no
+partner.
 
 ``phase`` is the bare phase. The stance marker (``>`` / ``~``) of TAXONOMY §6
 is optional, so it gets its own row and is counted only over the pairs where

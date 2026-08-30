@@ -86,19 +86,16 @@ def test_word_boundaries_are_respected(tmp_path: Path):
 def test_no_subdirectory_of_docs_is_exempt(tmp_path: Path):
     """Nothing under ``docs/`` is exempt -- every document is held to the rule.
 
-    An earlier revision excluded ``docs/handoffs/`` by directory name, so that
-    a set of external briefs could be kept verbatim. That exclusion is gone,
-    and the fixture below reuses the exact name it keyed on: reinstating the
-    carve-out -- for that name or any other under ``docs/`` -- fails here.
+    A carve-out keyed on a directory name under ``docs/`` fails here.
     """
-    doc = tmp_path / "docs" / "handoffs" / "BRIEF.md"
+    doc = tmp_path / "docs" / "guides" / "nested.md"
     doc.parent.mkdir(parents=True)
-    doc.write_text(f"this brief mentions a {BAD_WORDS[0]}\n", encoding="utf-8")
+    doc.write_text(f"this page mentions a {BAD_WORDS[0]}\n", encoding="utf-8")
 
     proc = run(tmp_path)
 
     assert proc.returncode == 1
-    assert "docs/handoffs/BRIEF.md" in proc.stderr
+    assert "docs/guides/nested.md" in proc.stderr
 
 
 def test_missing_root_is_a_usage_error(tmp_path: Path):
