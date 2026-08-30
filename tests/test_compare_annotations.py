@@ -326,3 +326,60 @@ def test_summarize_includes_the_stance(compare_module):
 def test_agreement_of_no_pairs_has_no_percentage(compare_module):
     data = compare_module.agreement([])
     assert data["move"] == {"agree": 0, "total": 0, "percent": None}
+
+
+# --------------------------------------------------------------------------
+# The fenced layout (TAXONOMY.md section 8)
+# --------------------------------------------------------------------------
+
+#: The same two files in the layout the template ships: prose the tooling
+#: ignores, and the move lines inside one ```text block.
+FENCED_ORIGINAL = (
+    FRONTMATTER
+    + "# alice's session\n\nHer own reading of it.\n\n```text\n"
+    + ORIGINAL.split("---\n\n", 1)[1]
+    + "```\n"
+)
+
+FENCED_REVIEW = (
+    FRONTMATTER
+    + "# bob re-reading alice's session\n\nFrom the same git log.\n\n```text\n"
+    + REVIEW.split("---\n\n", 1)[1]
+    + "```\n"
+)
+
+
+def report_body(stdout: str) -> str:
+    """Everything from the counts line on -- the two ``A = ``/``B = `` header
+    lines name the paths, which of course differ between two runs."""
+    marker = "annotated line(s) in A"
+    index = stdout.index(marker)
+    return stdout[stdout.rindex("\n", 0, index) + 1 :]
+
+
+def write_pair(tmp_path: Path, a: str, b: str, stem: str) -> tuple[Path, Path]:
+    first = tmp_path / f"{stem}-a.md"
+    second = tmp_path / f"{stem}-b.md"
+    first.write_text(a, encoding="utf-8")
+    second.write_text(b, encoding="utf-8")
+    return first, second
+
+
+def test_fenced_layout_is_invisible_to_the_comparison(tmp_path):
+    """Wrapping both files in a fence changes the rendering, not the reading."""
+    plain = run_compare(*write_pair(tmp_path, REVIEW, ORIGINAL, "plain"))
+    fenced = run_compare(*write_pair(tmp_path, FENCED_REVIEW, FENCED_ORIGINAL, "fenced"))
+
+    assert plain.returncode == 0, plain.stderr
+    assert fenced.returncode == 0, fenced.stderr
+    assert report_body(fenced.stdout) == report_body(plain.stdout)
+    assert "7 annotated line(s) in A, 5 in B; 5 aligned by timestamp." in fenced.stdout
+
+
+def test_a_fenced_file_compares_against_a_plain_one(tmp_path):
+    """The two layouts mix: one annotator converts, the other has not yet."""
+    plain = run_compare(*write_pair(tmp_path, REVIEW, ORIGINAL, "plain"))
+    mixed = run_compare(*write_pair(tmp_path, FENCED_REVIEW, ORIGINAL, "mixed"))
+
+    assert mixed.returncode == 0, mixed.stderr
+    assert report_body(mixed.stdout) == report_body(plain.stdout)

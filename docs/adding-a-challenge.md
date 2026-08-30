@@ -61,8 +61,8 @@ validate: "python tools/validate.py {instance} {solution} --json"
 - [ ] `dependency_group` — *optional*; the uv dependency group carrying this challenge's extra
       libraries (§5). Omit it if stdlib and PyYAML are enough.
 - [ ] `solutions_glob` — where solutions live **on the attempt branch**, relative to the repository
-      root. CI uses it to decide whether a push needs validating, and `collect_results.py` uses it
-      to find what to copy.
+      root. `collect_results.py` reads it to decide what to copy. CI does not: it validates whatever
+      a push changes under a `solutions/` directory, so keep solutions there if CI is to see them.
 - [ ] `validate` — the command template below.
 
 ## 3. The validator contract
@@ -169,7 +169,9 @@ solve <instance> --out <solution> --time-budget 60 [--seed N]
 - [ ] `challenges/<id>/demo.sh` runs the whole round trip on a tiny hand-made instance from
       `demo/` — generate (or read) → baseline → validate → render — and is what `make demo
       CHALLENGE=<id>` invokes. It must work from any working directory (resolve paths relative to
-      the script) and write only into the challenge directory.
+      the script) and write only into the challenge directory or into `<repo>/build/`, which
+      `.gitignore` already ignores — `challenges/c001/demo.sh` defaults to `build/c001-demo` and
+      lets the caller name another directory.
 - [ ] Numbers quoted in `challenges/<id>/README.md` are produced by the tools, not typed by hand.
 
 ## 8. Opening and closing the round

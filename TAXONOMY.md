@@ -193,6 +193,22 @@ enforced by `scripts/lint_annotations.py`; the shape is:
 timestamp  phase  move  [glyph]  [(motifs)]  ["comment"]  [@anchor]
 ```
 
+**Fences.** An `annotations.md` is markdown and is read as such. A line of three
+backticks, optionally followed by an info string such as `text`, opens a fenced
+block and the next such line closes it; leading whitespace before the backticks
+is ignored, so an indented fence still opens or closes a block even where a
+markdown renderer would not. Once a file contains one, only the lines
+inside fenced blocks are moves; blank lines and lines starting with `#` inside a
+block are still ignored, everything outside the blocks is prose for the reader
+that the tooling ignores, and a `+H:MM` line outside every block is a lint error,
+so a move cannot be lost to the prose by mistake. An unclosed block runs to the
+end of the file. A file with no fenced block is read line by line, exactly as
+before this rule existed, so every existing file keeps its meaning. Line numbers
+in lint messages and in `stats.py --grep` are always the line's position in the
+file, fence lines included. Reviewer copies
+(`results/<cid>/<participant>/<n>/reviews/<who>.annotations.md`) follow the same
+rule; they go through the same parser.
+
 **The timestamp origin.** `+0:00` is the moment the participant starts the
 session — the first reading of the challenge, before any code or commit exists.
 Every later `+H:MM` is elapsed time from that moment, and it is the only zero

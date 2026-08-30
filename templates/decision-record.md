@@ -26,9 +26,11 @@ the field narrowed to these.
 
 ## Epistemic moves used
 
-Which of `TUTOR`, `OPTIONS`, `PROBE`, `CRITERIA`, `CROSSCHECK`, `DEFER` you used
-to get from "I don't know this domain" to a choice — with the `annotations.md`
-timestamps and anchors, so a reader can follow the trail.
+The moves that fed the decision — usually Epistemic (`TUTOR`, `OPTIONS`,
+`PROBE`, `CRITERIA`, `CROSSCHECK`, `DEFER`), sometimes a `SPIKE` or a `SCOUT`
+that produced the evidence — and how they got you from "I don't know this
+domain" to a choice, with the `annotations.md` timestamps and anchors so a
+reader can follow the trail.
 
 - `<MOVE>` — +H:MM @anchor — what it got you
 

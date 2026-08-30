@@ -3,7 +3,8 @@
 This module is the single source of truth for:
 
 * the annotation taxonomy (phases, moves, glyphs, motifs) of TAXONOMY.md v0.2,
-* the ``annotations.md`` frontmatter + line grammar and its lint rules,
+* the ``annotations.md`` frontmatter + line grammar (fence rule included) and
+  its lint rules,
 * the ``session.yaml`` schema checks,
 * the challenge manifest (``challenges/<id>/challenge.yaml``) contract,
 * small path/git/format utilities used by every script in ``scripts/``.
@@ -59,6 +60,7 @@ __all__ = [
     "split_frontmatter",
     "Move",
     "LINE_RE",
+    "FENCE_RE",
     "parse_annotation_line",
     "parse_annotations_file",
     "load_yaml",
@@ -426,6 +428,20 @@ _ANCHOR_RE = re.compile(r"^(?:t[0-9]+|[0-9a-fA-F]{7,40})$")
 #: mistake people actually make, so it earns its own message.
 _TWO_ANCHORS_RE = re.compile(r"[ \t]+@[^ \t]+(?:[ \t]+@[^ \t]+)+[ \t]*$")
 
+#: A markdown code fence: a line whose first non-blank characters are three
+#: backticks, with or without an info string. In :func:`parse_annotations_file`
+#: such a line toggles fence state and is never a move line itself; see
+#: TAXONOMY.md section 8.
+FENCE_RE = re.compile(r"^[ \t]*```")
+
+#: Reported for a ``+H:MM`` line that sits outside every fence of a file that
+#: uses fences. Everything else outside a fence is prose and is ignored.
+_OUTSIDE_FENCE_TEXT = (
+    "move line outside a ``` fence; this file uses fences, so only the lines "
+    "inside them are read as moves and everything outside is prose. Move the "
+    "line inside a fence, or remove every fence to go back to the plain layout"
+)
+
 _FIELD_ORDER_HINT = (
     'fields must appear in the order: +H:MM  Phase[>|~]  MOVE  [glyph]  '
     '[(motifs)]  ["comment"]  [@anchor]'
@@ -716,7 +732,10 @@ def parse_annotations_file(path: Any) -> tuple[dict, list[Move], list[LintMessag
 
     Rules applied here (the annotation grammar of TAXONOMY.md): required
     frontmatter keys and their
-    types, the line grammar, non-decreasing timestamps (equal is fine), a
+    types, the fence rule of TAXONOMY.md section 8 (once the body holds a
+    fence, only the lines inside fences are moves; a ``+H:MM`` line outside
+    every fence is an error; a file without fences is read line by line),
+    the line grammar, non-decreasing timestamps (equal is fine), a
     mandatory comment on every ``X-*`` move and every ``??`` glyph, and a
     warning when ``taxonomy_version`` is unquoted or does not match.
 
@@ -744,7 +763,21 @@ def parse_annotations_file(path: Any) -> tuple[dict, list[Move], list[LintMessag
 
     moves: list[Move] = []
     previous: Optional[Move] = None
+    # TAXONOMY.md section 8: once the body holds a fence, only the lines inside
+    # fences are moves. The state lives here so parse_annotation_line stays a
+    # stateless one-line parser. An unclosed fence runs to the end of the file,
+    # as in CommonMark, and is not a diagnostic.
+    fenced = any(FENCE_RE.match(text) for _, text in body)
+    inside = False
     for line_no, line_text in body:
+        if fenced:
+            if FENCE_RE.match(line_text):
+                inside = not inside
+                continue
+            if not inside:
+                if _TIMESTAMP_LOOSE_RE.match(line_text):
+                    messages.append(_err(p, line_no, _OUTSIDE_FENCE_TEXT))
+                continue
         try:
             mv = parse_annotation_line(line_no, line_text, p)
         except LintError as exc:

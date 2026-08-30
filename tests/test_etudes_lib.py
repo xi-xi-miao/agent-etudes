@@ -762,6 +762,156 @@ def test_unknown_frontmatter_keys_accepted(tmp_path):
 
 
 # --------------------------------------------------------------------------
+# Fences (TAXONOMY.md section 8)
+#
+# A file whose body holds a ``` fence is read in fenced mode: only the lines
+# inside fences are moves, the prose around them is ignored. A file with no
+# fence keeps the plain line-by-line reading -- every test above is that
+# guarantee. ``write_annotations`` puts the body at file line 8.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text,matches",
+    [
+        ("```", True),
+        ("```text", True),
+        ("  ```", True),
+        ("\t```text", True),
+        ("````", True),
+        ("a ``` b", False),
+        ("``", False),
+        ('+0:10 Build NUDGE "``` inside a comment"', False),
+        ("", False),
+    ],
+)
+def test_fence_re_matches_only_fence_lines(text, matches):
+    assert bool(lib.FENCE_RE.match(text)) is matches
+
+
+FENCED_BODY = textwrap.dedent(
+    """\
+    # Alice, attempt 2
+
+    Prose that mentions Recon and a map but has no timestamp.
+
+    ```text
+    +0:00  Recon  SCOUT  "map"
+
+    # a comment inside the fence
+    +0:14  Plan   SPEC   !
+    ```
+
+    Closing remarks.
+    """
+)
+
+
+def test_fenced_file_reads_only_the_lines_inside_the_fence(tmp_path):
+    path = write_annotations(tmp_path, FM_OK, FENCED_BODY)
+    _, moves, messages = lib.parse_annotations_file(path)
+    assert messages == []
+    assert [m.move for m in moves] == ["SCOUT", "SPEC"]
+    # absolute file lines, fence lines counted
+    assert [m.line for m in moves] == [13, 16]
+
+
+def test_move_line_outside_a_fence_is_an_error(tmp_path):
+    path = write_annotations(tmp_path, FM_OK, FENCED_BODY + "+0:20  Build  NUDGE\n")
+    _, moves, messages = lib.parse_annotations_file(path)
+    errs = errors(messages)
+    assert len(errs) == 1, [str(m) for m in messages]
+    assert errs[0].line == 20
+    assert "outside a ``` fence" in errs[0].text
+    assert [m.move for m in moves] == ["SCOUT", "SPEC"]
+
+
+def test_an_indented_move_line_outside_a_fence_is_still_an_error(tmp_path):
+    """Indentation is exactly how a move gets lost to the prose."""
+    path = write_annotations(tmp_path, FM_OK, FENCED_BODY + "    +0:20  Build  NUDGE\n")
+    _, _, messages = lib.parse_annotations_file(path)
+    errs = errors(messages)
+    assert len(errs) == 1, [str(m) for m in messages]
+    assert errs[0].line == 20
+    assert "outside a ``` fence" in errs[0].text
+
+
+def test_prose_outside_a_fence_is_never_parsed_as_a_move(tmp_path):
+    body = textwrap.dedent(
+        """\
+        | Field | Form |
+        |---|---|
+        | move | one of the 24 named moves |
+
+        ```text
+        +0:10  Build  NUDGE
+        ```
+        """
+    )
+    path = write_annotations(tmp_path, FM_OK, body)
+    _, moves, messages = lib.parse_annotations_file(path)
+    assert messages == []
+    assert [m.move for m in moves] == ["NUDGE"]
+
+
+def test_move_lines_in_two_fences_are_one_timeline(tmp_path):
+    body = textwrap.dedent(
+        """\
+        ```text
+        +0:30  Build  NUDGE
+        ```
+
+        A paragraph between the two blocks.
+
+        ```text
+        +0:10  Build  VETO
+        ```
+        """
+    )
+    path = write_annotations(tmp_path, FM_OK, body)
+    _, moves, messages = lib.parse_annotations_file(path)
+    errs = errors(messages)
+    assert len(errs) == 1, [str(m) for m in messages]
+    assert "goes backwards" in errs[0].text
+    # the message names the earlier line, which sits in the first fence
+    assert "line 9" in errs[0].text
+    assert errs[0].line == 15
+    assert [m.move for m in moves] == ["NUDGE", "VETO"]
+
+
+def test_unclosed_fence_runs_to_the_end_of_the_file(tmp_path):
+    path = write_annotations(
+        tmp_path, FM_OK, "```text\n+0:10  Build  NUDGE\n+0:20  Build  VETO\n"
+    )
+    _, moves, messages = lib.parse_annotations_file(path)
+    assert messages == []
+    assert [m.move for m in moves] == ["NUDGE", "VETO"]
+
+
+def test_backticks_inside_a_comment_do_not_open_a_fence(tmp_path):
+    path = write_annotations(
+        tmp_path,
+        FM_OK,
+        '+0:10 Build NUDGE "wrapped the diff in ``` for the PR"\n+0:20 Build VETO\n',
+    )
+    _, moves, messages = lib.parse_annotations_file(path)
+    assert messages == []
+    assert [m.move for m in moves] == ["NUDGE", "VETO"]
+
+
+def test_plain_file_without_a_fence_still_reports_the_old_message(tmp_path):
+    path = write_annotations(
+        tmp_path, FM_OK, "Recon SCOUT with no timestamp\n+0:10 Build NUDGE\n"
+    )
+    _, moves, messages = lib.parse_annotations_file(path)
+    errs = errors(messages)
+    assert len(errs) == 1
+    assert errs[0].line == 8
+    assert "+H:MM" in errs[0].text
+    assert [m.move for m in moves] == ["NUDGE"]
+
+
+# --------------------------------------------------------------------------
 # session.yaml
 # --------------------------------------------------------------------------
 

@@ -32,8 +32,8 @@ Conventions and deliberate choices:
   part with no placement is simply not drawn, and a placement naming an unknown
   part id is ignored.  ``validate.py`` is the thing that objects.  Utilization
   still uses :func:`geom.total_area` over *all* parts of the instance -- the
-  same definition the validator uses -- so a partial layout renders with a
-  deliberately pessimistic number rather than an invented one.
+  same definition the validator uses -- so a partial layout renders with the
+  same flatteringly high number the validator would report, not an invented one.
 """
 
 from __future__ import annotations

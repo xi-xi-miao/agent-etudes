@@ -238,17 +238,64 @@ def test_template_session_yaml_satisfies_the_schema():
     assert messages == [], "\n".join(str(m) for m in messages)
 
 
+def fenced_lines(text: str) -> list[tuple[int, str]]:
+    """``(1-based line number, text)`` for every line inside a ``` fence."""
+    out: list[tuple[int, str]] = []
+    inside = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        if lib.FENCE_RE.match(line):
+            inside = not inside
+            continue
+        if inside:
+            out.append((number, line))
+    return out
+
+
 def test_template_example_lines_all_parse():
-    """The commented-out specimen lines must be copy-pasteable, not decorative."""
+    """The commented-out specimen lines must be copy-pasteable, not decorative.
+
+    They live inside the template's fenced block, which is where a participant
+    writes their own -- so that is where this test looks for them.
+    """
     specimens = [
-        line.strip().lstrip("#").strip()
-        for line in TEMPLATE_ANNOTATIONS.read_text(encoding="utf-8").splitlines()
-        if line.strip().startswith("#") and "+" in line and ":" in line
+        (number, line.strip().lstrip("#").strip())
+        for number, line in fenced_lines(
+            TEMPLATE_ANNOTATIONS.read_text(encoding="utf-8")
+        )
+        if line.strip().startswith("#")
     ]
-    specimens = [s for s in specimens if s.startswith("+")]
+    specimens = [(n, s) for n, s in specimens if s.startswith("+")]
     assert len(specimens) >= 5, "the template should show several specimen lines"
-    for number, text in enumerate(specimens, start=1):
+    for number, text in specimens:
         assert lib.parse_annotation_line(number, text, TEMPLATE_ANNOTATIONS) is not None
+
+
+def test_template_parses_to_no_moves_and_no_messages():
+    """A freshly copied template is a legal, empty annotations file.
+
+    Everything a participant reads is prose outside the fence, and every
+    specimen inside it is commented out, so the linter must find nothing at
+    all -- no move to count and nothing to complain about.
+    """
+    _, moves, messages = lib.parse_annotations_file(TEMPLATE_ANNOTATIONS)
+    assert messages == [], "\n".join(str(m) for m in messages)
+    assert moves == []
+
+
+def test_example_keeps_its_moves_inside_one_fence(moves):
+    """One block, and every move line in it (TAXONOMY.md section 8).
+
+    A move that drifted out of the fence would stop being read at all, so the
+    example would silently shrink instead of failing.
+    """
+    lines = ANNOTATIONS.read_text(encoding="utf-8").splitlines()
+    fences = [i for i, line in enumerate(lines, start=1) if lib.FENCE_RE.match(line)]
+    assert len(fences) == 2, f"expected exactly one fenced block, found {fences}"
+    opening, closing = fences
+    for m in moves:
+        assert opening < m.line < closing, (
+            f"line {m.line} ({m.move}) is outside the block at {opening}-{closing}"
+        )
 
 
 def test_template_documents_every_phase_glyph_and_motif_source():
