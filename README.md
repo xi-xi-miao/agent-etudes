@@ -37,8 +37,9 @@ One annotation line, all four layers at once:
 +2:05  Recover RESET !!  (context-rot) "fresh context + DISTILL doc; night-and-day difference"
 ```
 
-The full vocabulary, the earliest-cause rule for `?`/`??`, the optional stance marker and the
-governance rules for growing the vocabulary live in [TAXONOMY.md](TAXONOMY.md).
+The full vocabulary, the earliest-cause rule for `?`/`??`, the optional stance marker, the fence
+rule that keeps an `annotations.md` readable as ordinary markdown, and the governance rules for
+growing the vocabulary live in [TAXONOMY.md](TAXONOMY.md).
 
 ## Quickstart
 
@@ -50,33 +51,47 @@ make demo CHALLENGE=c001                                   # étude no. 1 round 
 make lint                                                  # every annotations.md in the tree, as CI does
 ```
 
-`make help` lists the rest (`lint`, `test`, `stats`, `collect`, `retro`, `check-words`,
-`check-challenge`).
+Run `make help` for the full list of targets.
 
 ## Repository map
 
+Placeholders used throughout: `<cid>` is a challenge id such as `c001`, `<participant>` is your
+handle (`[a-z0-9-]+`, the same string in every file), `<n>` is your attempt number for that étude,
+from 1.
+
 ```
-TAXONOMY.md          annotation vocabulary v0.2 — the authoritative spec
+AGENTS.md            orientation for coding agents: map, invariants, commands, conventions
+CONTRIBUTING.md      the participant workflow in five steps; maintainer section at the end
+TAXONOMY.md          annotation vocabulary v0.2 — authoritative for the vocabulary itself; the
+                     line grammar that combines it is enforced by scripts/lint_annotations.py
 templates/           session.yaml, annotations.md, postmortem.md, decision-record.md (attempt);
                      retro.md (maintainer, for retros/)
 examples/            example-session/ — a complete synthetic session, all four layers
-challenges/          one directory per étude (challenges/c001/ = étude no. 1) + the index
+challenges/          one directory per étude (challenges/c001/ = étude no. 1); README.md is the
+                     index and the design criteria, each étude's README.md is the statement
+                     followed by the tool contracts
 scripts/             shared, challenge-agnostic tooling (linter, collector, stats, validation)
-tests/               tests for the shared layer
-results/             collected session artifacts, results/<cid>/<participant>/<n>/
-retros/              the stored record of each round: retro.md, stats.txt, gallery.html
-docs/                adding-a-challenge.md, references.md
+tests/               tests for the shared layer (a challenge's tests: challenges/<cid>/tests/)
+results/             collected session artifacts, results/<cid>/<participant>/<n>/ (README.md inside)
+retros/              the stored record of each round: retro.md, stats.txt, gallery.html (README.md inside)
+docs/                adding-a-challenge.md (the challenge contract), references.md
+Makefile             every command; make help
+pyproject.toml       Python 3.11+, uv dependency groups (dev + one per challenge), pytest config
+.github/             workflows/ci.yml and PULL_REQUEST_TEMPLATE.md
 ```
 
 ## Where to go next
 
+- [CONTRIBUTING.md](CONTRIBUTING.md) — **participants start here**: the participant workflow, step
+  by step, with worked scenarios.
+- [AGENTS.md](AGENTS.md) — **coding agents start here**: a map of the repository and its invariants,
+  with the file that owns each rule. It says nothing about how to solve an étude.
 - [TAXONOMY.md](TAXONOMY.md) — the vocabulary: phases, moves, glyphs, motifs, versioning rules.
 - [templates/](templates/) — `session.yaml`, `annotations.md` and `postmortem.md` are copied into
   your `session/` directory when you set the attempt up; `decision-record.md` becomes
   `session/decisions/dr-00X.md`, one file per decision; `retro.md` is a maintainer artifact for
   `retros/<cid>/`, not part of an attempt. The exact commands are in CONTRIBUTING step 2.
 - [challenges/README.md](challenges/README.md) — the étude index and the challenge design criteria.
-- [CONTRIBUTING.md](CONTRIBUTING.md) — the participant workflow, step by step, with worked scenarios.
 - [docs/adding-a-challenge.md](docs/adding-a-challenge.md) — the contract a new étude must satisfy.
 - [docs/references.md](docs/references.md) — the research this design is built on.
 
