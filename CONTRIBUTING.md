@@ -26,7 +26,15 @@ Branch names follow `attempt/<cid>/<you>/<n>`, where `<you>` is your participant
 étude, starting at 1. `n` restarts per étude: `attempt/c002/alice/1` is a first attempt even if you
 made three attempts at c001. CI reads the challenge id out of the branch name, so the shape matters.
 
-### 2. Work with any agent, and commit often
+### 2. Set up, work with any agent, and commit often
+
+Copy the templates before you start, so the files you fill in afterwards already exist:
+
+```sh
+mkdir -p session/decisions solver solutions
+cp templates/session.yaml templates/annotations.md templates/postmortem.md session/
+cp templates/decision-record.md session/decisions/dr-001.md
+```
 
 Free choice of tool and model — that is the point of the comparison. Two duties during the session:
 
@@ -42,7 +50,8 @@ Free choice of tool and model — that is the point of the comparison. Two dutie
   hard to annotate honestly.
 - **Optional but encouraged:** run a session recorder such as SpecStory so the transcript lands in
   the repository as markdown. If your tool exports elsewhere, leave it there and point
-  `session.yaml`'s `transcript.path` at the tool-native location instead.
+  `session.yaml`'s `transcript.path` at the tool-native location instead. Either way, uncomment the
+  template's `transcript:` block — it ships commented out, because most sessions have no recorder.
 
 Your working tree on an attempt branch looks like this:
 
@@ -55,8 +64,18 @@ session/
 ├── harness/                # optional: agent config, rules files, MCP setup, as committed
 └── transcript/             # optional: in-repo transcript, if your recorder writes one here
 solver/                     # your code, in any language
-solutions/<instance_id>.json
+solutions/<instance_id>.json   # the solution data
+solutions/<instance_id>.svg    # the rendered figure: same directory, same stem as the JSON
 ```
+
+Both optional directories may simply be absent. If your agent ran with no rules file and no MCP
+server there is nothing to snapshot: leave `harness/` out, set `harness.config_paths: []` in
+`session.yaml` and say so in `harness.notes`. If you ran no recorder, leave the template's
+`transcript:` block commented out rather than naming a directory that does not exist.
+
+A rendered SVG is only collected when it sits beside its solution JSON with the same stem — so
+`solutions/hidden/<instance_id>.svg` after the hidden round closes. Render it there rather than
+into the working directory, or it is silently left behind.
 
 Only `session/` and `solutions/` are ever copied into `results/`; `solver/` stays on the branch,
 where it remains readable and reviewable.
@@ -66,10 +85,9 @@ where it remains readable and reviewable.
 Annotation is retrospective. During the session you only commit; afterwards you reconstruct the
 timeline from `git log` and your transcript.
 
+The files are already in `session/` from step 2; now you fill them in.
+
 ```sh
-mkdir -p session/decisions
-cp templates/session.yaml templates/annotations.md templates/postmortem.md session/
-cp templates/decision-record.md session/decisions/dr-001.md
 git log --reverse --format='%h %ad %s' --date=iso   # your raw material
 ```
 
@@ -87,26 +105,43 @@ git log --reverse --format='%h %ad %s' --date=iso   # your raw material
 Then check your work locally:
 
 ```sh
-uv run python scripts/lint_annotations.py session/annotations.md --session --repo .
+make lint                                        # whole tree, exactly the form CI runs
+uv run python scripts/lint_annotations.py session/annotations.md --session --repo . \
+  --expect-branch "$(git branch --show-current)"   # the same checks, your files only
 ```
 
 `--session` also validates `session/session.yaml` and cross-checks that the participant, challenge
-and attempt number agree between the two files. CI runs the same command with
-`--expect-branch <your branch>`, which additionally cross-checks them against the branch name.
+and attempt number agree between the two files. `--expect-branch` additionally cross-checks both
+against the branch name — that is the check that catches a `session.yaml` still saying
+`participant: your-handle`, which the other forms pass. `make lint` runs it with the current
+branch, so a green `make lint` predicts a green CI check; on `main` or a `retro/<cid>` branch the
+branch cross-check is skipped with a notice.
 
 ### 4. Review for secrets, then push and open a draft PR
 
-**Transcripts are the riskiest artifact in this repository.** Before pushing, read what you are
-about to commit — transcripts, harness config, environment dumps — and remove API keys, tokens,
-internal URLs and customer data.
+**Transcripts are the riskiest artifact in this repository.** The remote is public and the branch
+is the record, so this pre-push review is the control that matters: CI's secret scan runs *after*
+the push and can only report a key that is already published. Read what you are about to commit and
+remove API keys, tokens, internal URLs and customer data.
+
+What to scan: `session/` (especially `session/harness/` and any transcript directory, whether
+committed here or exported by your tool elsewhere), `solver/`, and `solutions/`. Two commands — one
+to read the content yourself, one to scan it:
 
 ```sh
-git diff c001-start...HEAD --stat        # everything the branch adds
+git diff c001-start...HEAD -- session solver solutions    # the content, not just the file names
+gitleaks detect --source . --config .gitleaks.toml --redact --no-git
 git push -u origin attempt/c001/alice/1
 gh pr create --draft --label attempt --base main \
   --title "attempt/c001/alice/1" \
   --body "Attempt 1 at étude no. 1. Draft on purpose — this PR is never merged."
 ```
+
+`gitleaks` is a single binary — `brew install gitleaks`, or a build from
+<https://github.com/gitleaks/gitleaks/releases>. `--no-git` scans the working tree as it stands,
+which is what you want before the first push; `--redact` keeps any finding out of your terminal
+scrollback. CI runs gitleaks over the pushed history on every push to `attempt/**`, with the same
+config file.
 
 The PR exists for CI and visibility. **Attempt PRs stay drafts and are never merged into `main`** —
 the branch is the record. CI runs a secret scan, the annotation linter, and (when your branch
@@ -144,11 +179,12 @@ git fetch --tags
 git switch -c attempt/c001/alice/1 c001-start
 mkdir -p session/decisions solver solutions
 cp templates/session.yaml templates/annotations.md templates/postmortem.md session/
+cp templates/decision-record.md session/decisions/dr-001.md
 # ... four hours with your agent, committing as [agent] / [human] ...
 uv run python challenges/c001/tools/validate.py \
   challenges/c001/instances/dev/c001-t1-dev-01.json solutions/c001-t1-dev-01.json
-# ... ~30 min of annotation ...
-uv run python scripts/lint_annotations.py session/annotations.md --session --repo .
+# ... ~30 min of annotation, filling in the files copied above ...
+make lint
 git push -u origin attempt/c001/alice/1
 gh pr create --draft --label attempt --base main --title "attempt/c001/alice/1" --body "..."
 ```
@@ -171,10 +207,14 @@ and the retro reads them as two takes on the same position.
 ```sh
 git fetch --all --tags
 git switch -c retro/c001 main
-make collect                       # attempt branches -> results/<cid>/<p>/<n>/
 make retro CHALLENGE=c001          # collect + stats + gallery -> retros/c001/
 open retros/c001/gallery.html
 ```
+
+`make retro` collects the attempt branches into `results/<cid>/<p>/<n>/` itself, so it is the only
+command you need. `make collect` on its own collects without building a retro; if `results/` is
+already up to date, `uv run python scripts/retro.py --challenge c001 --skip-collect` reuses the
+tree as it stands.
 
 `make retro` writes `retros/c001/retro.md` (a pre-filled skeleton), `retros/c001/stats.txt` and
 `retros/c001/gallery.html`, and prints the brilliancies-and-blunders reel for pasting into a GitHub
@@ -187,7 +227,10 @@ Discussion is a manual step, on purpose.
 
 Cross-annotation is the reliability check: a second person annotates somebody else's session
 independently and commits it as
-`results/c001/alice/1/reviews/bob.annotations.md` (same grammar, same linter). Then:
+`results/c001/alice/1/reviews/bob.annotations.md` (same grammar, same linter). The reviewer's id
+goes in the filename and nowhere else: the frontmatter keeps `participant: alice` — the annotated
+participant's handle, which the linter cross-checks against that attempt's `session.yaml` — and the
+reviewer may add `annotator: bob` beside it. Then:
 
 ```sh
 uv run python scripts/compare_annotations.py \
@@ -195,9 +238,12 @@ uv run python scripts/compare_annotations.py \
   results/c001/alice/1/reviews/bob.annotations.md
 ```
 
-This prints per-timestamp agreement on phase, move and glyph plus the list of disagreements.
-Systematic disagreement about what a move *means* is the evidence for a definition-clarification PR
-labelled `taxonomy-change` — not a judgement about either annotator.
+This prints five agreement rows — `phase` (the bare phase), `stance` (the optional `>` / `~`
+marker, counted only over the pairs where both files gave one, so `n/a` when neither did), `move`,
+`glyph`, and `all three` (phase, move and glyph together) — then the disagreements, then any
+`Lines that found no partner`. Systematic disagreement about what a move *means* is the evidence
+for a definition-clarification PR labelled `taxonomy-change` — not a judgement about either
+annotator.
 
 ### D. Adding étude no. 2
 

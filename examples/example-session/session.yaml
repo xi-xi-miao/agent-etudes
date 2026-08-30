@@ -11,8 +11,8 @@ model:
   name: "example-model-large"
 
 harness:
-  config_paths: ["session/harness/"]
-  notes: "Default config plus a project rules file pinning the rotate-then-translate transform order and banning ready-made nesting libraries."
+  config_paths: []
+  notes: "Default config plus a project rules file pinning the rotate-then-translate transform order and banning ready-made nesting libraries. Nothing is listed in config_paths because this fixture commits no session/harness/ directory."
 
 duration_wall_minutes: 235
 
@@ -22,7 +22,11 @@ cost:
   usd_estimate: 3.9
 
 transcript:
-  path: "session/transcript/"
+  # The block is filled in because this session's annotations carry @t<n>
+  # transcript anchors; a session with no recorder leaves the template's copy
+  # commented out instead. A tool-native export outside the repository is a
+  # legitimate location, and nothing under session/transcript/ is committed here.
+  path: ".specstory/history/"
   tool: "specstory"
 
 outcome:

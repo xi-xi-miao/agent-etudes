@@ -11,7 +11,7 @@ session_date: 2026-09-12
 # complete to chew on. It demonstrates all four layers, both stance markers, a
 # wildcard move, both anchor kinds, and the earliest-cause rule.
 
-+0:00  Recon    SCOUT                       "asked for a map of challenges/c001 and a list of the validator error codes"   @3f9a1c2
++0:00  Recon    SCOUT                       "asked for a map of challenges/c001 and a list of the validator error codes"   @t001
 +0:12  Recon    TUTOR                       "had it explain no-fit polygons and bottom-left placement before I chose anything"  @t118
 +0:26  Plan     OPTIONS                     "three overlap strategies with tradeoffs: no-fit polygon, pairwise intersection, raster masks"  @t204
 +0:34  Plan     SPEC       !                "wrote the generate-solve-validate round trip as a failing test before any solver code"  @a71b4e0

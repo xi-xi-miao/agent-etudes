@@ -24,6 +24,8 @@ session_date: 2026-09-12
 #   timestamp  phase  move  [glyph]  [(motifs)]  ["comment"]  [@anchor]
 #
 #   timestamp  "+H:MM" elapsed from session start; hours unbounded, minutes 00-59
+#              the origin is when you started the session — your first reading
+#              of the challenge, not your first commit (TAXONOMY.md section 8)
 #   phase      Recon | Plan | Build | Verify | Recover
 #              optional stance suffix: ">" = acceleration, "~" = exploration
 #   move       one of the 24 named moves, or X-<name>, or NOTE

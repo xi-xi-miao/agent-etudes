@@ -13,7 +13,7 @@ help:
 	@echo "agent-etudes targets (CHALLENGE=$(CHALLENGE)):"
 	@echo ""
 	@echo "  make sync              install every dependency group with uv"
-	@echo "  make lint              lint all annotations.md (+ their session.yaml)"
+	@echo "  make lint              lint all annotations.md (+ their session.yaml), as CI does"
 	@echo "  make test              run the test suite"
 	@echo "  make stats             move/glyph/motif distributions and phase timelines"
 	@echo "  make collect           copy attempt branches into results/ (maintainer)"
@@ -27,8 +27,11 @@ help:
 sync:
 	uv sync --all-groups
 
+# The same form CI runs. The linter skips the branch cross-check with a notice
+# when the current branch is not attempt/<cid>/<participant>/<n>, so this is
+# also safe on main and on retro/<cid>.
 lint:
-	uv run python scripts/lint_annotations.py --session
+	uv run python scripts/lint_annotations.py --session --expect-branch "$$(git branch --show-current)"
 
 test:
 	uv run pytest

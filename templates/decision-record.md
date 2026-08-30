@@ -30,9 +30,9 @@ Which of `TUTOR`, `OPTIONS`, `PROBE`, `CRITERIA`, `CROSSCHECK`, `DEFER` you used
 to get from "I don't know this domain" to a choice — with the `annotations.md`
 timestamps and anchors, so a reader can follow the trail.
 
-- `TUTOR` — +H:MM @anchor — what you had explained
-- `OPTIONS` — +H:MM @anchor — what alternatives you asked for
-- `CROSSCHECK` — +H:MM @anchor — what you verified independently
+- `<MOVE>` — +H:MM @anchor — what it got you
+
+List only the moves you actually made. A short list is a finding, not a gap.
 
 ## Confidence
 

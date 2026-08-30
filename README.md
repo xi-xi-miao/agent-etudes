@@ -47,6 +47,7 @@ uv sync --all-groups                                       # install everything 
 uv run python scripts/lint_annotations.py examples/example-session/annotations.md --session
 uv run pytest                                              # shared + challenge tests
 make demo CHALLENGE=c001                                   # étude no. 1 round trip
+make lint                                                  # every annotations.md in the tree, as CI does
 ```
 
 `make help` lists the rest (`lint`, `test`, `stats`, `collect`, `retro`, `check-words`,
@@ -56,7 +57,8 @@ make demo CHALLENGE=c001                                   # étude no. 1 round 
 
 ```
 TAXONOMY.md          annotation vocabulary v0.2 — the authoritative spec
-templates/           session.yaml, annotations.md, postmortem.md, decision-record.md, retro.md
+templates/           session.yaml, annotations.md, postmortem.md, decision-record.md (attempt);
+                     retro.md (maintainer, for retros/)
 examples/            example-session/ — a complete synthetic session, all four layers
 challenges/          one directory per étude (challenges/c001/ = étude no. 1) + the index
 scripts/             shared, challenge-agnostic tooling (linter, collector, stats, validation)
@@ -69,7 +71,10 @@ docs/                adding-a-challenge.md, references.md, handoffs/ (original s
 ## Where to go next
 
 - [TAXONOMY.md](TAXONOMY.md) — the vocabulary: phases, moves, glyphs, motifs, versioning rules.
-- [templates/](templates/) — copy these into your `session/` directory at the start of an attempt.
+- [templates/](templates/) — `session.yaml`, `annotations.md` and `postmortem.md` are copied into
+  your `session/` directory when you set the attempt up; `decision-record.md` becomes
+  `session/decisions/dr-00X.md`, one file per decision; `retro.md` is a maintainer artifact for
+  `retros/<cid>/`, not part of an attempt. The exact commands are in CONTRIBUTING step 2.
 - [challenges/README.md](challenges/README.md) — the étude index and the challenge design criteria.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — the participant workflow, step by step, with worked scenarios.
 - [docs/adding-a-challenge.md](docs/adding-a-challenge.md) — the contract a new étude must satisfy.

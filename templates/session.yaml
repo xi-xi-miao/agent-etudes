@@ -17,7 +17,11 @@ model:                          # required
   name: "<model id>"
 
 harness:                        # optional but encouraged
-  config_paths: ["session/harness/"]   # snapshot of agent config, rules files, MCP setup
+  # Paths you committed as a snapshot of agent config, rules files, MCP setup —
+  # conventionally ["session/harness/"]. If your agent ran with nothing to
+  # snapshot, keep the empty list and say so in notes rather than naming a
+  # directory that is not on the branch.
+  config_paths: []
   notes: ""
 
 duration_wall_minutes: 235      # required, int — also sets the width of the ASCII phase timeline
@@ -27,12 +31,12 @@ cost:                           # optional (e.g. from usage tooling)
   tokens_out: 0
   usd_estimate: 0.0
 
-transcript:                     # optional
-  # Either a directory committed on the attempt branch — conventionally
-  # "session/transcript/" — or a tool-native export location outside the repo
-  # (e.g. ".specstory/history/"). Review it for secrets before you push.
-  path: "session/transcript/"
-  tool: "specstory"             # specstory | native | manual
+# transcript:                   # optional — uncomment only if you recorded one.
+#   # Either a directory committed on the attempt branch — conventionally
+#   # "session/transcript/" — or a tool-native export location outside the repo
+#   # (e.g. ".specstory/history/"). Review it for secrets before you push.
+#   path: "<path to the transcript>"
+#   tool: "specstory | native | manual"
 
 outcome:                        # required
   tests_passed: null            # true / false / null until the challenge defines a suite

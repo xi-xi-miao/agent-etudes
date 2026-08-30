@@ -21,6 +21,16 @@ results/<cid>/<participant>/<n>/
 attempt in the path always agree with the fields inside `session.yaml` and `annotations.md` — the
 tooling reads the files, not the path.
 
+The two timelines have different zero points: `git-timeline.txt` counts from the attempt's first
+commit, while `annotations.md` counts from the start of the session as defined in
+[TAXONOMY.md](../TAXONOMY.md) section 8 — usually a few minutes earlier.
+
+A cross-annotation in `reviews/` is one reviewer's reading of *this* attempt, so it keeps
+`participant:` = the annotated participant's handle (alice above), and the reviewer's id lives in
+the filename: `results/<cid>/<participant>/<n>/reviews/<reviewer>.annotations.md`. A reviewer may
+add `annotator: <reviewer>` to the frontmatter; the linter cross-checks the shared labels against
+the attempt's `session.yaml` and would reject the reviewer's own handle there.
+
 ## How it gets here
 
 A maintainer runs `make collect` (`scripts/collect_results.py`) on a branch off `main`. It walks the

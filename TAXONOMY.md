@@ -174,6 +174,13 @@ It is entirely optional; the linter accepts both bare and suffixed phases.
   independently and diff the results; systematic disagreement on a move's meaning
   triggers a definition clarification PR. (Standard practice from dialogue-act
   annotation research.)
+- **Where a cross-annotation lives.** The second reading of an attempt is committed as
+  `results/<cid>/<participant>/<n>/reviews/<reviewer>.annotations.md` — the reviewer's
+  handle is the filename stem and appears nowhere else. Its frontmatter keeps the
+  *annotated* attempt's `participant`, `challenge` and `attempt`, which
+  `scripts/lint_annotations.py` cross-checks against that attempt's `session.yaml`; a
+  reviewer who wants to be named in the file may add an optional `annotator:` key
+  beside them. Diff the pair with `scripts/compare_annotations.py`.
 
 ---
 
@@ -185,6 +192,16 @@ enforced by `scripts/lint_annotations.py`; the shape is:
 ```
 timestamp  phase  move  [glyph]  [(motifs)]  ["comment"]  [@anchor]
 ```
+
+**The timestamp origin.** `+0:00` is the moment the participant starts the
+session — the first reading of the challenge, before any code or commit exists.
+Every later `+H:MM` is elapsed time from that moment, and it is the only zero
+point the annotation grammar has. The collected
+`results/<cid>/<participant>/<n>/git-timeline.txt` uses a *different* zero: its
+`+0:00` is the attempt's first commit, which normally falls some minutes into
+the session. So a line anchored `@<commit>` and that commit's row in the
+timeline carry different offsets by design; read the two side by side, not as
+one clock.
 
 See `templates/annotations.md` for the annotated template and
 `examples/example-session/annotations.md` for a complete worked example.
