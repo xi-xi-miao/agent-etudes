@@ -147,8 +147,10 @@ solve <instance> --out <solution> --time-budget 60 [--seed N]
   ```
 
   There is no per-challenge `requirements.txt`. Name the group in the manifest's
-  `dependency_group`. CI installs it with `uv sync --frozen --group c002` for the validation job;
-  contributors get everything with `uv sync --all-groups`.
+  `dependency_group`. CI does not install groups one at a time: its validate-solutions job runs
+  `uv sync --frozen --all-groups`, and so do the tests. Contributors get the same with
+  `uv sync --all-groups`. Per-challenge isolation is therefore the rule below, kept by the author
+  and by review — nothing checks it for you.
 - [ ] The **shared layer stays stdlib + PyYAML**: nothing under `scripts/` or `tests/` may import a
       challenge's libraries. Challenge tooling may import whatever its group provides.
 

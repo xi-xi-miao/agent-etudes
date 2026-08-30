@@ -7,8 +7,11 @@
 #                       solution file on the branch and post the utilization line as a step summary
 #   tests               shared-layer + per-challenge pytest, challenge contract checks, forbidden-word grep
 #
-# Branch protection (set in the GitHub UI): require secret-scan, lint-annotations and
-# validate-solutions on PRs to main. Attempt PRs are drafts and are never merged.
+# Branch protection (set in the GitHub UI): require secret-scan and lint-annotations on PRs to
+# main. Those two run on every PR, so they are the only checks worth requiring. validate-solutions
+# runs on attempt/** branches only (see its `if:`), and the PRs that do get merged into main come
+# from retro/** and etude/** branches, where it is skipped; a job skipped by a job-level `if:`
+# reports success, so requiring it would gate nothing. Attempt PRs are drafts and are never merged.
 name: CI
 
 on:
@@ -97,10 +100,13 @@ jobs:
         if: steps.files.outputs.count != '0'
         run: |
           set -euo pipefail
-          xargs -a "$RUNNER_TEMP/solution-files.txt" uv run python scripts/validate_solutions.py \
+          # The file-argument form of xargs is a GNU extension; redirecting stdin is portable,
+          # so a maintainer reviewing an attempt can run this same line on macOS.
+          xargs uv run python scripts/validate_solutions.py \
             --branch "$BRANCH_NAME" \
             --challenge-root "$RUNNER_TEMP/oracle/challenges" \
-            --summary "$GITHUB_STEP_SUMMARY"
+            --summary "$GITHUB_STEP_SUMMARY" \
+            < "$RUNNER_TEMP/solution-files.txt"
       - name: Render solutions (if the challenge ships a renderer)
         if: steps.files.outputs.count != '0'
         run: |
