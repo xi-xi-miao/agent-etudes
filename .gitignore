@@ -8,6 +8,11 @@ __pycache__/
 *hidden-seeds*
 *.hidden-seeds
 
+# Agent worktrees: a second checkout of this repository inside the tree. The
+# tooling prunes nested checkouts anyway (scripts/check_words.sh,
+# scripts/lint_annotations.py), but they are never ours to commit.
+.claude/worktrees/
+
 # Local scratch and generated demo output (make demo)
 /build/
 .DS_Store

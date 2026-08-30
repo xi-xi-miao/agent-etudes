@@ -11,8 +11,15 @@
 # other hit fails the check.
 #
 # Excluded from the search: .git/, .venv/, __pycache__/, .pytest_cache/,
-# node_modules/, docs/handoffs/ (the original briefs, kept verbatim for
-# provenance) and uv.lock. Binary files are skipped with grep -I.
+# node_modules/, .claude/ (agent scratch: local settings and worktrees),
+# docs/handoffs/ (the original briefs, kept verbatim for provenance) and
+# uv.lock. Binary files are skipped with grep -I.
+#
+# Also excluded: anything under a nested checkout -- a second clone or a git
+# worktree living inside ROOT, recognised by its own .git entry (a directory
+# for a clone, a file for a worktree). Those files belong to another checkout,
+# and without this a copy of the allowed README.md sentence would be reported
+# as a violation of the very rule that allows it.
 #
 # Portability: POSIX-ish shell, works with macOS bash 3.2 + BSD grep as well as
 # bash 5 + GNU grep.
@@ -56,6 +63,7 @@ hits="$(grep -rniwE "$pattern" . -I \
   --exclude-dir=__pycache__ \
   --exclude-dir=.pytest_cache \
   --exclude-dir=node_modules \
+  --exclude-dir=.claude \
   --exclude-dir=handoffs \
   --exclude=uv.lock 2>/dev/null || true)"
 
@@ -63,6 +71,26 @@ hits="$(grep -rniwE "$pattern" . -I \
 # under docs/handoffs/ defensively; also drop the empty line the quoting of an
 # empty result would otherwise produce.
 hits="$(printf '%s\n' "$hits" | grep -v '^[[:space:]]*$' | grep -v '^\./docs/handoffs/' || true)"
+
+# Nested checkouts: every directory below ROOT that carries its own .git entry.
+# ROOT's own .git is at depth 1 and is left alone. The prune list is applied to
+# the hits (grep -r has no path-aware exclusion that both GNU and BSD grep
+# accept) BEFORE the README.md allowlist is worked out, so a nested copy of the
+# allowed sentence is neither an extra allowed hit nor an offending one.
+nested="$(find . -mindepth 2 \
+  \( -path './.git/*' -o -name .venv -o -name node_modules -o -name .claude \) \
+  -prune -o -name .git -print -prune 2>/dev/null \
+  | sed -e 's|/\.git$||' -e 's|^\./||' | sort)"
+
+if [ -n "$nested" ] && [ -n "$hits" ]; then
+  hits="$(printf '%s\n' "$hits" | awk -v dirs="$nested" '
+    BEGIN { n = split(dirs, prefix, "\n") }
+    {
+      for (i = 1; i <= n; i++)
+        if (prefix[i] != "" && index($0, "./" prefix[i] "/") == 1) next
+      print
+    }')"
+fi
 
 if [ -z "$hits" ]; then
   echo "check-words: clean (no hits at all)"
@@ -91,5 +119,5 @@ fi
 echo "check-words: forbidden vocabulary outside README.md:" >&2
 printf '%s\n' "$offending" | sed 's/^/    /' >&2
 echo "" >&2
-echo "Use utilization / measure / distribution / count / standings instead." >&2
+echo "Use utilization / measure / distribution / count instead." >&2
 exit 1

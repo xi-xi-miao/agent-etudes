@@ -98,3 +98,82 @@ def test_missing_root_is_a_usage_error(tmp_path: Path):
 
     assert proc.returncode == 2
     assert "no such directory" in proc.stderr
+
+
+def _nested_checkout(root: Path, name: str, *, git_entry: str) -> Path:
+    """A second checkout inside ``root``: a clone (.git dir) or a worktree (.git file)."""
+    nested = root / name
+    nested.mkdir(parents=True)
+    if git_entry == "dir":
+        (nested / ".git").mkdir()
+    else:
+        (nested / ".git").write_text(
+            "gitdir: /elsewhere/.git/worktrees/x\n", encoding="utf-8"
+        )
+    return nested
+
+
+@pytest.mark.parametrize("git_entry", ["dir", "file"], ids=["clone", "worktree"])
+def test_a_nested_checkouts_readme_copy_is_not_a_violation(tmp_path: Path, git_entry):
+    """The allowed sentence, copied verbatim into a second checkout, is not a hit.
+
+    The allowlist is anchored to the top-level README.md, so before this the
+    identical sentence one directory down failed the check that permits it.
+    """
+    sentence = f"It is not a competition: there is no {BAD_WORDS[0]} here.\n"
+    (tmp_path / "README.md").write_text(sentence, encoding="utf-8")
+    nested = _nested_checkout(tmp_path, "worktrees/playtest", git_entry=git_entry)
+    (nested / "README.md").write_text(sentence, encoding="utf-8")
+
+    proc = run(tmp_path)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "clean (only the README.md sentence)" in proc.stdout
+    assert "playtest" not in proc.stdout + proc.stderr
+    assert "exactly ONE sentence" not in proc.stderr
+
+
+def test_a_nested_checkouts_own_vocabulary_is_not_this_trees_problem(tmp_path: Path):
+    doc = _nested_checkout(tmp_path, "vendor/other-clone", git_entry="dir") / "notes.md"
+    doc.write_text(f"a {BAD_WORDS[1]} table\n", encoding="utf-8")
+
+    proc = run(tmp_path)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+def test_the_claude_directory_is_excluded(tmp_path: Path):
+    """.claude/ holds agent scratch, including worktrees of this repository."""
+    doc = tmp_path / ".claude" / "worktrees" / "playtest" / "docs" / "notes.md"
+    doc.parent.mkdir(parents=True)
+    doc.write_text(f"a {BAD_WORDS[2]} table\n", encoding="utf-8")
+
+    proc = run(tmp_path)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+def test_a_real_violation_still_fails_when_a_nested_checkout_exists(tmp_path: Path):
+    """Pruning the neighbours must not prune the tree the check is about."""
+    _nested_checkout(tmp_path, "worktrees/playtest", git_entry="file")
+    doc = tmp_path / "docs" / "notes.md"
+    doc.parent.mkdir(parents=True)
+    doc.write_text(f"a {BAD_WORDS[3]} table\n", encoding="utf-8")
+
+    proc = run(tmp_path)
+
+    assert proc.returncode == 1
+    assert "docs/notes.md" in proc.stderr
+
+
+def test_the_advice_names_only_measures_this_repository_reports(tmp_path: Path):
+    """The suggestion list must not recommend the ordering word the docs disclaim."""
+    doc = tmp_path / "docs" / "notes.md"
+    doc.parent.mkdir(parents=True)
+    doc.write_text(f"a {BAD_WORDS[0]} table\n", encoding="utf-8")
+
+    proc = run(tmp_path)
+
+    assert proc.returncode == 1
+    assert "Use utilization / measure / distribution / count instead." in proc.stderr
+    assert "stan" + "dings" not in proc.stderr
