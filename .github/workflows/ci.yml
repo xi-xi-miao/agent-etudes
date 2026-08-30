@@ -8,10 +8,12 @@
 #   tests               shared-layer + per-challenge pytest, challenge contract checks, forbidden-word grep
 #
 # Branch protection (set in the GitHub UI): require secret-scan and lint-annotations on PRs to
-# main. Those two run on every PR, so they are the only checks worth requiring. validate-solutions
-# runs on attempt/** branches only (see its `if:`), and the PRs that do get merged into main come
-# from retro/** and etude/** branches, where it is skipped; a job skipped by a job-level `if:`
-# reports success, so requiring it would gate nothing. Attempt PRs are drafts and are never merged.
+# main, and optionally the two tests checks. Those three jobs run on every PR; tests is a matrix
+# (the checks are named "tests (py3.11)" and "tests (py3.13)") that also runs on pushes to main,
+# but not on attempt/** or retro/** pushes. validate-solutions runs on attempt/** branches only
+# (see its `if:`), and the PRs that do get merged into main come from retro/** and etude/**
+# branches, where it is skipped; a job skipped by a job-level `if:` reports success, so requiring
+# it would gate nothing. Attempt PRs are drafts and are never merged.
 name: CI
 
 on:

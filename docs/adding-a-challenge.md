@@ -169,7 +169,9 @@ solve <instance> --out <solution> --time-budget 60 [--seed N]
 - [ ] `challenges/<id>/demo.sh` runs the whole round trip on a tiny hand-made instance from
       `demo/` — generate (or read) → baseline → validate → render — and is what `make demo
       CHALLENGE=<id>` invokes. It must work from any working directory (resolve paths relative to
-      the script) and write only into the challenge directory.
+      the script) and write only into the challenge directory or into `<repo>/build/`, which
+      `.gitignore` already ignores — `challenges/c001/demo.sh` defaults to `build/c001-demo` and
+      lets the caller name another directory.
 - [ ] Numbers quoted in `challenges/<id>/README.md` are produced by the tools, not typed by hand.
 
 ## 8. Opening and closing the round

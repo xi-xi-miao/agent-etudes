@@ -145,7 +145,13 @@ def test_make_lint_supplies_the_current_branch_to_expect_branch():
 def test_ci_header_describes_the_checks_that_can_be_required():
     """The header comment is the only statement of the branch-protection setup, and
     validate-solutions cannot be one of the required checks: it runs on attempt/**
-    branches only, and those PRs are never merged (D5)."""
+    branches only, and those PRs are never merged (D5).
+
+    ``tests`` runs on every pull request too, so the header names it as well -- and
+    names each matrix version, because branch protection is set per check and the
+    checks are ``tests (py<version>)``.
+    """
+    data, _ = load()
     header = "\n".join(
         line for line in CI.read_text().splitlines() if line.startswith("#")
     )
@@ -160,3 +166,7 @@ def test_ci_header_describes_the_checks_that_can_be_required():
     # and it is named afterwards, to say where it does run instead
     assert "validate-solutions" in protection
     assert "attempt/**" in protection
+    # the tests matrix: named, and with every version it actually runs
+    assert "tests" in protection
+    for python in data["jobs"]["tests"]["strategy"]["matrix"]["python"]:
+        assert str(python) in protection, (python, protection)

@@ -25,11 +25,9 @@ The two timelines have different zero points: `git-timeline.txt` counts from the
 commit, while `annotations.md` counts from the start of the session as defined in
 [TAXONOMY.md](../TAXONOMY.md) section 8 — usually a few minutes earlier.
 
-A cross-annotation in `reviews/` is one reviewer's reading of *this* attempt, so it keeps
-`participant:` = the annotated participant's handle (alice above), and the reviewer's id lives in
-the filename: `results/<cid>/<participant>/<n>/reviews/<reviewer>.annotations.md`. A reviewer may
-add `annotator: <reviewer>` to the frontmatter; the linter cross-checks the shared labels against
-the attempt's `session.yaml` and would reject the reviewer's own handle there.
+A cross-annotation in `reviews/` is one reviewer's reading of *this* attempt, filed as
+`results/<cid>/<participant>/<n>/reviews/<reviewer>.annotations.md`. Which handle goes in the
+frontmatter, and what the linter cross-checks, is [TAXONOMY.md](../TAXONOMY.md) section 7.
 
 ## How it gets here
 

@@ -31,12 +31,15 @@ made three attempts at c001. CI reads the challenge id out of the branch name, s
 Copy the templates before you start, so the files you fill in afterwards already exist:
 
 ```sh
+uv sync --all-groups   # once per clone (Python 3.11+ and uv); make sync does the same
 mkdir -p session/decisions solver solutions
 cp templates/session.yaml templates/annotations.md templates/postmortem.md session/
 cp templates/decision-record.md session/decisions/dr-001.md
 ```
 
-Free choice of tool and model — that is the point of the comparison. Two duties during the session:
+Free choice of tool and model — that is the point of the comparison. Most agents read the root
+[AGENTS.md](AGENTS.md) on their own; it is a map of the repository and its invariants, says nothing
+about the étude, and is safe to point yours at. Two duties during the session:
 
 - **Commit often**, and prefix every commit subject with `[agent]` or `[human]` according to who
   actually authored the change:
@@ -64,6 +67,7 @@ session/
 ├── harness/                # optional: agent config, rules files, MCP setup, as committed
 └── transcript/             # optional: in-repo transcript, if your recorder writes one here
 solver/                     # your code, in any language
+├── README.md               # how to build and run it — required by challenges/<cid>/README.md
 solutions/<instance_id>.json   # the solution data
 solutions/<instance_id>.svg    # the rendered figure: same directory, same stem as the JSON
 ```
@@ -94,8 +98,10 @@ git log --reverse --format='%h %ad %s' --date=iso   # your raw material
 - `session/session.yaml` — tool name and version, model, wall-clock duration, an honest
   `self_assessment` of 1–3 sentences.
 - `session/annotations.md` — one line per move, four layers, in the grammar the linter enforces.
-  Apply glyphs in hindsight only. For `?` and `??` use the earliest-cause rule: mark the earliest
-  move from which the trouble became unrecoverable, not the move where the symptom surfaced.
+  Keep the move lines inside the fenced code block the template opens for them; the prose around it
+  is yours to rewrite and the tooling ignores it (TAXONOMY.md section 8). Apply glyphs in hindsight
+  only. For `?` and `??` use the earliest-cause rule: mark the earliest move from which the trouble
+  became unrecoverable, not the move where the symptom surfaced.
 - `session/postmortem.md` — the plan, where and why you intervened, where the agent got stuck, what
   you would do differently, and one thing worth stealing from your own session.
 - `session/decisions/dr-XXX.md` — one record per decision you made in a domain you do not know:
@@ -142,6 +148,9 @@ gh pr create --draft --label attempt --base main \
 which is what you want before the first push; `--redact` keeps any finding out of your terminal
 scrollback. CI runs gitleaks over the pushed history on every push to `attempt/**`, with the same
 config file.
+
+`--label attempt` fails if the label does not exist in the repository; a maintainer creates it once
+(*One-off repository setup* below).
 
 The PR exists for CI and visibility. **Attempt PRs stay drafts and are never merged into `main`** —
 the branch is the record. CI runs a secret scan, the annotation linter, and (when your branch
@@ -227,10 +236,9 @@ Discussion is a manual step, on purpose.
 
 Cross-annotation is the reliability check: a second person annotates somebody else's session
 independently and commits it as
-`results/c001/alice/1/reviews/bob.annotations.md` (same grammar, same linter). The reviewer's id
-goes in the filename and nowhere else: the frontmatter keeps `participant: alice` — the annotated
-participant's handle, which the linter cross-checks against that attempt's `session.yaml` — and the
-reviewer may add `annotator: bob` beside it. Then:
+`results/<cid>/<participant>/<n>/reviews/<reviewer>.annotations.md` — same grammar, same linter.
+[TAXONOMY.md](TAXONOMY.md) section 7 says whose handle goes in the frontmatter and what the linter
+cross-checks. Then:
 
 ```sh
 uv run python scripts/compare_annotations.py \
@@ -289,22 +297,13 @@ gh label create taxonomy-change --description "Changes TAXONOMY.md; needs the ev
 
 ### Opening an étude
 
-1. Land the challenge directory on `main` and confirm the contract:
-   `uv run python scripts/check_challenge.py challenges/c001`.
-2. Create the annotated start tag on the `main` commit that contains it:
+The mechanics — land `challenges/<cid>/` on `main`, run `check_challenge.py`, create the annotated
+`<cid>-start` tag on that commit, flip `status: draft` to `open`, update the index row in
+`challenges/README.md` — are the checklist in
+[docs/adding-a-challenge.md](docs/adding-a-challenge.md) section 8. The tag never moves once the
+status is `open`, and `check_challenge.py` refuses `status: open` until the tag exists.
 
-   ```sh
-   git tag -a c001-start -m "étude no. 1 — irregular shape nesting — start position"
-   git push origin c001-start
-   ```
-
-   The tag is annotated (it carries the message and the date), it lives on `main`, it is named in
-   `challenges/c001/challenge.yaml` as `start_tag`, and **it never moves once the status is `open`**.
-   Later fixes to the tooling land on `main`; CI always validates solutions with `main`'s copy of
-   `challenges/<cid>/`, so participants never need to rebase to pick up a validator fix.
-3. Flip `status: draft` to `status: open` in `challenges/c001/challenge.yaml` and update the row in
-   `challenges/README.md`. `check_challenge.py` refuses `status: open` unless the tag exists.
-4. Announce the round in a GitHub Discussion.
+The one step that is not in that checklist: announce the round in a GitHub Discussion.
 
 ### Closing an étude
 
@@ -321,4 +320,5 @@ branch.
   instance → alphabetical participant. `make check-words` enforces the vocabulary.
 - Taxonomy changes only via a PR labelled `taxonomy-change`, motivated by wildcard evidence or by a
   session that demonstrably could not be described.
+- A rule is stated in full in one file; every other file gives the path and a link.
 - `uv run pytest` and `make check-words` are green before you ask for review.

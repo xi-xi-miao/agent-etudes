@@ -8,9 +8,9 @@
 
 - [ ] **I reviewed my transcript and session files for secrets** (API keys, tokens, internal URLs,
       customer data) before pushing.
-- [ ] `uv run python scripts/lint_annotations.py session/annotations.md --session` passes locally,
-      or this PR touches no annotations.
-- [ ] `uv run pytest` and `bash scripts/check_words.sh` are green, or this PR touches no code.
+- [ ] `make lint` passes locally (the same linter invocation CI runs), or this PR touches no
+      annotations.
+- [ ] `uv run pytest` and `make check-words` are green, or this PR touches no code.
 
 ---
 
