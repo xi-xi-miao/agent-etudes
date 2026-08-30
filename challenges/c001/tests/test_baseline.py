@@ -1,7 +1,7 @@
 """Tests for the c001 bounding-box shelf-packing baseline solver.
 
 Covered here: the 0/90 orientation rule, the translation that compensates for a
-rotation about the local origin, an end-to-end pack of a synthetic instance
+rotation about the local origin, the shelf layout, an end-to-end pack of a synthetic instance
 through ``validate.py``, the same over every committed dev instance, and the
 CLI surface participants have to mirror (``--out``/``--time-budget``/``--seed``).
 """
@@ -68,32 +68,33 @@ def require_validator(tools_dir):
 # --------------------------------------------------------------------------
 
 
-def test_orientation_prefers_the_thinner_column():
-    """A 100x800 part fits both ways at W=1000; the thin 0 deg column wins."""
-    part = rect_part("p001", 100.0, 800.0)
+def test_orientation_prefers_the_lower_shelf():
+    """An 800x100 part fits both ways at W=1000; lying flat (0 deg) makes the
+    lower shelf and wins."""
+    part = rect_part("p001", 800.0, 100.0)
     rotation, minx, miny, x_extent, y_extent = baseline.choose_orientation(part, 1000.0)
 
     assert rotation == 0.0
-    assert x_extent == pytest.approx(100.0)
-    assert y_extent == pytest.approx(800.0)
+    assert x_extent == pytest.approx(800.0)
+    assert y_extent == pytest.approx(100.0)
     assert (minx, miny) == pytest.approx((0.0, 0.0))
 
 
-def test_orientation_rotates_a_part_too_tall_for_the_strip():
-    """A 100x1200 part cannot stand upright at W=1000, so it must lie down."""
-    part = rect_part("p001", 100.0, 1200.0)
+def test_orientation_rotates_a_part_too_wide_for_the_strip():
+    """A 1200x100 part cannot lie flat at W=1000, so it must stand up."""
+    part = rect_part("p001", 1200.0, 100.0)
     rotation, minx, miny, x_extent, y_extent = baseline.choose_orientation(part, 1000.0)
 
     assert rotation == 90.0
-    assert x_extent == pytest.approx(1200.0)
-    assert y_extent == pytest.approx(100.0)
+    assert x_extent == pytest.approx(100.0)
+    assert y_extent == pytest.approx(1200.0)
     # Rotating CCW about the local origin swings the box into negative x.
-    assert minx == pytest.approx(-1200.0)
+    assert minx == pytest.approx(-100.0)
     assert miny == pytest.approx(0.0)
 
 
-def test_orientation_tie_prefers_the_shorter_part():
-    """Both orientations of a square are equally thin; the rule stays total."""
+def test_orientation_tie_prefers_the_narrower_part():
+    """Both orientations of a square are equally low; the rule stays total."""
     rotation, _minx, _miny, x_extent, y_extent = baseline.choose_orientation(
         rect_part("p001", 50.0, 50.0), 1000.0
     )
@@ -103,12 +104,12 @@ def test_orientation_tie_prefers_the_shorter_part():
 
 def test_orientation_honours_a_rotation_list():
     """With rotations restricted to 90 deg, the 0 deg option is not available."""
-    part = rect_part("p001", 100.0, 800.0)
-    rotation, _minx, _miny, x_extent, _y_extent = baseline.choose_orientation(
+    part = rect_part("p001", 800.0, 100.0)
+    rotation, _minx, _miny, _x_extent, y_extent = baseline.choose_orientation(
         part, 1000.0, allowed=[90.0]
     )
     assert rotation == 90.0
-    assert x_extent == pytest.approx(800.0)
+    assert y_extent == pytest.approx(800.0)
 
 
 def test_part_that_fits_no_orientation_is_rejected():
@@ -119,7 +120,7 @@ def test_part_that_fits_no_orientation_is_rejected():
 
 
 # --------------------------------------------------------------------------
-# translation compensation and column layout
+# translation compensation and shelf layout
 # --------------------------------------------------------------------------
 
 
@@ -127,75 +128,75 @@ def placed_bounds(instance, solution):
     return {pid: poly.bounds for pid, poly in geom.placed_polygons(instance, solution).items()}
 
 
-def test_rotated_part_lands_flush_against_its_column():
-    """translation = (col_x - minx_rot, y - miny_rot) must undo the negative-x
+def test_rotated_part_lands_flush_against_the_left_edge():
+    """translation = (x - minx_rot, shelf_y - miny_rot) must undo the negative-x
     swing of a 90 deg rotation, so the placed part starts exactly at x = 0."""
-    instance = make_instance([rect_part("p001", 100.0, 1200.0)])
+    instance = make_instance([rect_part("p001", 1200.0, 100.0)])
     solution = baseline.solve(instance)
 
     placement = solution["placements"][0]
     assert placement["rotation_deg"] == 90.0
-    assert placement["translation"][0] == pytest.approx(1200.0)
+    assert placement["translation"][0] == pytest.approx(100.0)
 
     minx, miny, maxx, maxy = placed_bounds(instance, solution)["p001"]
     assert minx == pytest.approx(0.0, abs=1e-9)
     assert miny == pytest.approx(0.0, abs=1e-9)
-    assert maxx == pytest.approx(1200.0, abs=1e-9)
-    assert maxy == pytest.approx(100.0, abs=1e-9)
+    assert maxx == pytest.approx(100.0, abs=1e-9)
+    assert maxy == pytest.approx(1200.0, abs=1e-9)
 
 
-def test_columns_start_where_the_previous_one_ended():
-    """Two 600-tall parts cannot share a 1000-wide column, so the second one
-    opens a new column at x = the first column's thickness."""
+def test_shelves_start_where_the_previous_one_ended():
+    """Two 600-wide parts cannot share a 1000-wide shelf, so the second one
+    opens a new shelf at y = the first shelf's height."""
     instance = make_instance(
-        [rect_part("p001", 300.0, 600.0), rect_part("p002", 200.0, 600.0)],
+        [rect_part("p001", 600.0, 300.0), rect_part("p002", 600.0, 200.0)],
         strip_width=1000.0,
     )
     solution = baseline.solve(instance)
     bounds = placed_bounds(instance, solution)
 
-    # Thickest column first: p001 (300 wide) opens column 0 at x = 0.
-    assert bounds["p001"][0] == pytest.approx(0.0, abs=1e-9)
-    assert bounds["p002"][0] == pytest.approx(300.0, abs=1e-9)
+    # Highest shelf first: p001 (300 high) opens shelf 0 at y = 0.
     assert bounds["p001"][1] == pytest.approx(0.0, abs=1e-9)
-    assert bounds["p002"][1] == pytest.approx(0.0, abs=1e-9)
-
-
-def test_parts_stack_upward_inside_one_column():
-    instance = make_instance(
-        [rect_part("p001", 300.0, 400.0), rect_part("p002", 200.0, 400.0)],
-        strip_width=1000.0,
-    )
-    solution = baseline.solve(instance)
-    bounds = placed_bounds(instance, solution)
-
+    assert bounds["p002"][1] == pytest.approx(300.0, abs=1e-9)
     assert bounds["p001"][0] == pytest.approx(0.0, abs=1e-9)
     assert bounds["p002"][0] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_parts_pack_rightward_along_one_shelf():
+    instance = make_instance(
+        [rect_part("p001", 400.0, 300.0), rect_part("p002", 400.0, 200.0)],
+        strip_width=1000.0,
+    )
+    solution = baseline.solve(instance)
+    bounds = placed_bounds(instance, solution)
+
     assert bounds["p001"][1] == pytest.approx(0.0, abs=1e-9)
-    assert bounds["p002"][1] == pytest.approx(400.0, abs=1e-9)
-    # One column only: the used length is the single column's thickness.
-    assert geom.used_length(geom.placed_polygons(instance, solution).values()) == pytest.approx(
+    assert bounds["p002"][1] == pytest.approx(0.0, abs=1e-9)
+    assert bounds["p001"][0] == pytest.approx(0.0, abs=1e-9)
+    assert bounds["p002"][0] == pytest.approx(400.0, abs=1e-9)
+    # One shelf only: the used height is the single shelf's height.
+    assert geom.used_height(geom.placed_polygons(instance, solution).values()) == pytest.approx(
         300.0, abs=1e-9
     )
 
 
-def test_first_fit_reuses_an_earlier_column_not_just_the_last():
-    """First fit means *first* open column, not the most recently opened one.
+def test_first_fit_reuses_an_earlier_shelf_not_just_the_last():
+    """First fit means *first* open shelf, not the most recently opened one.
 
-    Three parts at W=1000, in the order the thickness sort puts them:
+    Three parts at W=1000, in the order the height sort puts them:
 
-    * p001 300x850 opens column 0 at x=0, leaving 150 of y-room;
-    * p002 200x950 does not fit column 0, so it opens column 1 at x=300;
-    * p003 100x100 fits column 0 (850+100) but not column 1 (950+100).
+    * p001 850x300 opens shelf 0 at y=0, leaving 150 of x-room;
+    * p002 950x200 does not fit shelf 0, so it opens shelf 1 at y=300;
+    * p003 100x100 fits shelf 0 (850+100) but not shelf 1 (950+100).
 
-    A next-fit regression that only looked at ``columns[-1]`` would open a third
-    column for p003 and stretch the used length from 500 to 600, so both the
-    placement and the used length are pinned here.
+    A next-fit regression that only looked at ``shelves[-1]`` would open a third
+    shelf for p003 and stretch the used height from 500 to 600, so both the
+    placement and the used height are pinned here.
     """
     instance = make_instance(
         [
-            rect_part("p001", 300.0, 850.0),
-            rect_part("p002", 200.0, 950.0),
+            rect_part("p001", 850.0, 300.0),
+            rect_part("p002", 950.0, 200.0),
             rect_part("p003", 100.0, 100.0),
         ],
         strip_width=1000.0,
@@ -203,11 +204,11 @@ def test_first_fit_reuses_an_earlier_column_not_just_the_last():
     solution = baseline.solve(instance)
     bounds = placed_bounds(instance, solution)
 
-    assert bounds["p003"][0] == pytest.approx(0.0, abs=1e-9), "p003 skipped column 0"
-    assert bounds["p003"][1] == pytest.approx(850.0, abs=1e-9)
-    assert geom.used_length(geom.placed_polygons(instance, solution).values()) == pytest.approx(
+    assert bounds["p003"][1] == pytest.approx(0.0, abs=1e-9), "p003 skipped shelf 0"
+    assert bounds["p003"][0] == pytest.approx(850.0, abs=1e-9)
+    assert geom.used_height(geom.placed_polygons(instance, solution).values()) == pytest.approx(
         500.0, abs=1e-9
-    ), "a third column was opened, so the scan is next-fit rather than first-fit"
+    ), "a third shelf was opened, so the scan is next-fit rather than first-fit"
 
 
 def test_every_part_gets_exactly_one_placement(tiny_instance):
@@ -224,12 +225,12 @@ def test_every_part_gets_exactly_one_placement(tiny_instance):
 
 
 def synthetic_five_part_instance():
-    """Five mixed parts: three rectangles, a tall sliver and a right triangle."""
+    """Five mixed parts: three rectangles, a long sliver and a right triangle."""
     parts = [
         rect_part("p001", 420.0, 610.0),
         rect_part("p002", 260.0, 340.0),
         rect_part("p003", 180.0, 900.0),
-        rect_part("p004", 90.0, 1150.0),  # too tall upright -> must be rotated
+        rect_part("p004", 1150.0, 90.0),  # too wide to lie flat -> must be stood up
         {
             "id": "p005",
             "exterior": [[0.0, 0.0], [300.0, 0.0], [0.0, 250.0]],
@@ -250,7 +251,7 @@ def test_five_part_instance_packs_and_validates(tmp_path, tools_dir, run_tool):
     packed = run_tool("baseline", instance_path, "--out", solution_path)
     assert packed.returncode == 0, packed.stderr
     assert "placed 5 parts" in packed.stderr
-    assert "used_length=" in packed.stderr
+    assert "used_height=" in packed.stderr
     assert "utilization=" in packed.stderr
 
     checked = run_tool("validate", instance_path, solution_path, "--json")
@@ -390,7 +391,7 @@ def test_dev_instance_packs_validly_with_a_plausible_measure(
     solution = geom.load_solution(solution_path)
     used, util = baseline.measure(instance, solution)
     pct = float(geom.format_pct(util))
-    assert 25.0 <= pct <= 75.0, "{}: utilization {}% (used_length={:.3f}) is outside the " \
+    assert 25.0 <= pct <= 75.0, "{}: utilization {}% (used_height={:.3f}) is outside the " \
         "25-75% band expected of bounding-box shelf packing".format(instance_path.stem, pct, used)
 
 

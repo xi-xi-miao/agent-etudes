@@ -23,7 +23,7 @@ prose for the reader, which the tooling ignores (TAXONOMY.md section 8).
 +0:34  Plan     SPEC       !                "wrote the generate-solve-validate round trip as a failing test before any solver code"  @a71b4e0
 +0:52  Build>   DISPATCH   ??  (yes-and)    "handed off a shelf packer built on my assumption that bounding boxes were good enough; it never pushed back and every later fix inherited the gap"  @c02d5a9
 +1:47  Build~   SPIKE                       "throwaway timing harness: pairwise intersection over 40 parts, 5 degree rotation sweep"  @t512
-+2:05  Build    TAKEOVER       (false-summit)  "agent reported the packer done with three parts hanging past y=W; I rewrote the fit test by hand, about 35 minutes"  @e4d7b13
++2:05  Build    TAKEOVER       (false-summit)  "agent reported the packer done with three parts hanging past x=W; I rewrote the fit test by hand, about 35 minutes"  @e4d7b13
 +2:44  Recover  RESET      !!  (context-rot)   "fresh session seeded with a handoff doc after the old context started forgetting the transform order"
 +2:46  Recover  DISTILL                     "handoff doc: geometry conventions, error codes, what the spike ruled out"      @9c1f6a8
 +3:12  Build    PAIR                        "stepped through the rotation sweep together at 5 degree granularity"

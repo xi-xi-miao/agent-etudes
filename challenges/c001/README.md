@@ -33,12 +33,14 @@ tools' contracts.
 
 ## The challenge
 
-You are given a strip of material of fixed width and unbounded length, and a set of irregular
-polygonal parts. Write a solver that places **every** part on the strip — translated and rotated,
-no overlaps, nothing outside the strip — while **minimizing the length of material used**. Quality
+You are given a strip of material of fixed width and unbounded length, standing on end — the width
+runs across the page, the strip extends upward without bound — and a set of irregular polygonal
+parts. Write a solver that places **every** part on the strip — translated and rotated, no
+overlaps, nothing outside the strip — while **minimizing the height of material used**. Quality
 is measured as **utilization**: how much of the used strip is covered by parts, defined under
-Geometry conventions. A valid layout is instantly visible as an SVG: a better layout has visibly
-less whitespace and a higher utilization number. Naive bounding-box packing gets you to somewhere
+Geometry conventions. A valid layout is instantly visible as an SVG, and every layout of an
+instance is drawn at the same scale: a better layout is a shorter picture, with visibly less
+whitespace and a higher utilization number. Naive bounding-box packing gets you to somewhere
 around 45–50% in the first hour — that is what the baseline shipped here measures on the dev set
 (its numbers are the table under The reference floor) — and the interesting work is climbing from
 there toward 80%+ through real computational geometry and optimization, a domain most participants
@@ -51,11 +53,12 @@ Six parts, a 200-wide strip, two layouts of the same instance:
 | baseline — `tools/baseline.py` | hand-nested — `demo/demo-6.improved.json` |
 |---|---|
 | ![baseline layout of the 6-part demo instance](demo/baseline.svg) | ![hand-nested layout of the same six parts](demo/improved.svg) |
-| used length 190.0 · utilization **59.5%** | used length 150.0 · utilization **75.3%** |
+| used height 190.0 · utilization **59.5%** | used height 150.0 · utilization **75.3%** |
 
 Same six parts, +15.8 percentage points, and you can see it without reading the number: the two
-L-shapes interlock so their notches coincide, the square drops into the shared notch, and the
-triangle is rotated to nest in the leftover column. That is the whole étude in one picture.
+L-shapes interlock so their notches coincide, the square drops into the shared notch, the trapezoid
+stands on end against the right edge, and the triangle is rotated to nest in the corner left over
+above them. The strip is shorter, and that is the whole étude in one picture.
 
 The hand-written inputs are `demo/demo-6.json` and `demo/demo-6.improved.json`; the two SVGs and
 `demo/demo-6.baseline.json` are derived from them by `bash challenges/c001/demo.sh` and committed
@@ -93,9 +96,10 @@ renderer; see [`demo/README.md`](demo/README.md).
 
 These conventions are shared by every format and every tool.
 
-- 2D Cartesian, floating point. Units are abstract.
-- The strip is the region `x ≥ 0`, `0 ≤ y ≤ W`, unbounded in `+x`. `W` is the instance's
-  `strip_width` (1000.0 throughout the dev set).
+- 2D Cartesian, floating point, `y` up. Units are abstract.
+- The strip stands up: it is the region `0 ≤ x ≤ W`, `y ≥ 0`, unbounded in `+y`. `W` is the
+  instance's `strip_width` (1000.0 throughout the dev set) and runs along `x`; material is
+  consumed upward along `y`.
 - A **ring** is a list of `[x, y]` vertices, implicitly closed — the first vertex is not repeated —
   and simple. Exterior rings are counter-clockwise, hole rings clockwise.
 - A **part** is one exterior ring plus zero or more hole rings, in local coordinates, with the
@@ -105,9 +109,9 @@ These conventions are shared by every format and every tool.
   origin `(0, 0)`, **then** translate by `[tx, ty]`. Exactly that order. In Shapely this is one
   `affine_transform([cos, -sin, sin, cos, tx, ty])`; `shapely.affinity.rotate` defaults to the
   centroid and is not this transform.
-- **Used length** `L` is the largest x-coordinate reached by any placed part.
-- **Utilization** is `Σ part_area / (W × L)`, over **all** parts of the instance, clamped to
-  `[0, 1]`, and `0.0` when `L ≤ 0`. It is formatted as a percentage with one decimal place.
+- **Used height** `H` is the largest y-coordinate reached by any placed part.
+- **Utilization** is `Σ part_area / (W × H)`, over **all** parts of the instance, clamped to
+  `[0, 1]`, and `0.0` when `H ≤ 0`. It is formatted as a percentage with one decimal place.
 
 ## File formats
 
@@ -176,14 +180,15 @@ uv run python challenges/c001/tools/validate.py \
     solutions/c001-t1-dev-01.json --json --svg solutions/c001-t1-dev-01.svg
 ```
 
-It prints one human line, `VALID  used_length=4800.621  utilization=44.6%`. `--json` appends a
+It prints one human line, `VALID  used_height=4800.621  utilization=44.6%`. `--json` appends a
 machine-readable object as the last stdout line — this is what CI echoes; its keys and their
 semantics are under Validator contract → Output.
 
 `--svg FILE` renders the layout while validating, and `--labels` puts part ids on that SVG
 (without `--svg` it is ignored).
 
-**Render** — omit the solution for a parts-catalog view of the instance:
+**Render** — the strip standing up, `y = 0` at the bottom, a dashed line at the used height; omit
+the solution for a parts-catalog view of the instance:
 
 ```sh
 uv run python challenges/c001/tools/render.py <instance.json> [<solution.json>] --out FILE.svg [--labels]
@@ -280,12 +285,12 @@ reading and start building — is itself an annotatable move, and a good candida
 
 ## The reference floor
 
-`tools/baseline.py` packs bounding boxes into columns, deliberately blind to the parts' outlines —
+`tools/baseline.py` packs bounding boxes onto shelves, deliberately blind to the parts' outlines —
 the algorithm is under Baseline — and exists to give "less good" a concrete face on day one.
 Measured by `make demo CHALLENGE=c001` over the 15 committed dev instances (`W = 1000`, 40 parts
 each):
 
-| instance | utilization % | used length |
+| instance | utilization % | used height |
 | --- | ---: | ---: |
 | c001-t1-dev-01 | 44.6 | 4800.621 |
 | c001-t1-dev-02 | 50.9 | 4042.012 |
@@ -332,13 +337,13 @@ Every violation is collected and reported; only `SCHEMA` stops the run.
 | 3 | `UNKNOWN_PART` | A placement names a part id the instance does not define. |
 | 4 | `ROTATION_NOT_ALLOWED` | `rotations_allowed` is a list and a placement's angle is not in it, modulo 360° with a tolerance of 1e-6°. |
 | 5 | `INVALID_GEOMETRY` | A transformed part is not a valid Shapely polygon. |
-| 6 | `OUTSIDE_STRIP` | More than `TOL_AREA` of a transformed part lies outside `x ≥ 0`, `0 ≤ y ≤ W`. |
+| 6 | `OUTSIDE_STRIP` | More than `TOL_AREA` of a transformed part lies outside `0 ≤ x ≤ W`, `y ≥ 0`. |
 | 7 | `OVERLAP` | Two transformed parts intersect in more than `TOL_AREA` of area. |
 
 The placement set must be a bijection onto the instance's part ids. When it is not, the geometry
 stages (5–7) still run on what can be salvaged: for each known part id the **first** placement
 carrying it, in instance part order, is the one transformed. A part reported as `INVALID_GEOMETRY`
-is excluded from stages 6 and 7 and from `used_length`.
+is excluded from stages 6 and 7 and from `used_height`.
 
 Because a part's interior excludes its holes, one part placed fully inside another part's hole
 produces no `OVERLAP`, and two parts sharing an edge exactly produce none either: holes are real
@@ -361,12 +366,12 @@ With `--json`, the last stdout line is exactly this object — seven keys, print
 
 ```json
 {"errors": [], "instance_id": "c001-t1-dev-01",
- "measures": {"used_length": 4800.621, "utilization_pct": 44.6},
- "summary": "VALID  used_length=4800.621  utilization=44.6%",
- "used_length": 4800.621, "utilization_pct": 44.6, "valid": true}
+ "measures": {"used_height": 4800.621, "utilization_pct": 44.6},
+ "summary": "VALID  used_height=4800.621  utilization=44.6%",
+ "used_height": 4800.621, "utilization_pct": 44.6, "valid": true}
 ```
 
-`used_length` is rounded to three decimals, `utilization_pct` to one; the two top-level measures
+`used_height` is rounded to three decimals, `utilization_pct` to one; the two top-level measures
 repeat the two `measures` entries. `summary` is the line a consumer may echo verbatim, and on
 failure it carries more than the printed headline does:
 `"INVALID  2 violation(s): OUTSIDE_STRIP, OVERLAP"`. Each entry of `errors` is an object with
@@ -381,9 +386,9 @@ check, and `OVERLAP` sorted by the pair's ids. `UNKNOWN_PART` is the one excepti
 order" — its ids are not instance parts, so they are reported in order of first appearance among the
 solution's placements, each id once however many placements name it.
 
-The two measures are only meaningful when `valid` is `true`. `used_length` spans just the parts
+The two measures are only meaningful when `valid` is `true`. `used_height` spans just the parts
 that were actually transformed, while utilization always divides by the total area of *every*
-instance part, so an incomplete layout reports a shorter length and a flatteringly high
+instance part, so an incomplete layout reports a shorter height and a flatteringly high
 utilization. A consumer must gate on `valid` before reading either number.
 
 ### Exit codes and performance
@@ -428,7 +433,7 @@ drawn that way sum to the instance total below:
 
 The instance's total net part area is drawn uniformly from `[2.0·10⁶, 3.0·10⁶]`, scaled by
 `parts / 40` at other part counts, and is realised exactly by a single global scale factor. At
-`W = 1000` a perfect layout would therefore use a length of 2000–3000.
+`W = 1000` a perfect layout would therefore use a height of 2000–3000.
 
 **Placeability.** Every part's exterior has a point-set diameter of at most
 `0.85 × strip_width` (850 in the dev set), measured after rounding to three decimals. The diameter
@@ -490,16 +495,23 @@ regenerates one committed dev file in place is in [`instances/README.md`](instan
 ## Renderer and gallery contracts
 
 [`tools/render.py`](tools/render.py). Without a solution it draws a parts catalog — every part in
-its own grid cell, id underneath. With one it draws the strip outline, a dashed vertical line at
-`used_length`, and every placed part filled from a 12-colour categorical palette at 60% opacity
-with a thin dark stroke, holes punched out via `fill-rule="evenodd"`; `--labels` writes part ids
-onto them. The header carries the instance id, the utilization and the used length, and nothing
-else — no participant names, no comparison between attempts. Rendering is deliberately tolerant so
-it stays useful for debugging: an unplaced part is not drawn and a placement naming an unknown part
+its own grid cell, id underneath. With one it draws the strip standing up — the width across the
+page, `y = 0` along the bottom edge, the outline reaching a little past the layout — a dashed
+horizontal line at `used_height`, and every placed part filled from a 12-colour categorical
+palette at 60% opacity with a thin dark stroke, holes punched out via `fill-rule="evenodd"`;
+`--labels` writes part ids onto them. The scale is fixed by the strip width alone (`W` maps to the
+same pixel width whatever the layout), so every layout of one instance is drawn at one scale and
+two of them compare by height: the better layout is the shorter picture. A layout drops below that
+shared scale only when its picture would not fit the renderer's size caps — a part flung more than
+about two strip widths sideways, or a layout more than about twenty strip widths tall, three times
+the tallest layout under The reference floor — and such a runaway picture no longer compares by
+height. The header carries the instance id, the utilization and the used height, and nothing else
+— no participant names, no comparison between attempts. Rendering is deliberately tolerant so it
+stays useful for debugging: an unplaced part is not drawn and a placement naming an unknown part
 id is ignored — `validate.py` is the tool that objects — but utilization is still computed over all
 instance parts, so a partial layout renders with the same flatteringly high number the validator
-would report, not an invented one.
-Exit `0`, or `2` on unreadable input, an instance-id mismatch, or an unwritable output.
+would report, not an invented one. Exit `0`, or `2` on unreadable input, an instance-id mismatch,
+or an unwritable output.
 
 [`tools/gallery.py`](tools/gallery.py). Each path is a solution file, a directory (its `*.json`,
 non-recursive), or a glob. The instance behind a solution is located by `instance_id`, searching
@@ -507,7 +519,8 @@ non-recursive), or a glob. The instance behind a solution is located by `instanc
 cannot be found is skipped with a warning.
 
 The page is one self-contained HTML file: one section per instance id in sorted order, one card per
-solution inside a section — so two attempts at the same instance sit side by side. Cards are
+solution inside a section — so two attempts at the same instance sit side by side, every card the
+same width and bottom-aligned, so the strips stand on one floor and compare by height. Cards are
 alphabetical by label (`<participant> / attempt <n>` when the path lies under
 `results/<cid>/<participant>/<n>/`, otherwise the file stem); the label is the sort key, so card
 order never depends on utilization. Every utilization shown is recomputed from the instance and the
@@ -519,17 +532,17 @@ output cannot be written.
 ## Baseline
 
 [`tools/baseline.py`](tools/baseline.py) proves the formats end to end. It packs bounding boxes
-into **vertical columns** and ignores the parts' true outlines:
+onto **horizontal shelves** and ignores the parts' true outlines:
 
-1. For each part, keep the orientations among 0° and 90° whose y-extent fits `W`, and take the one
-   with the smallest x-extent, ties going to the smaller y-extent. A part with no fitting
+1. For each part, keep the orientations among 0° and 90° whose x-extent fits `W`, and take the one
+   with the smallest y-extent, ties going to the smaller x-extent. A part with no fitting
    orientation is an error — the diameter cap under Size mix and totals guarantees there always is
    one.
-2. Sort by decreasing chosen x-extent, i.e. by column thickness.
-3. First fit: drop each part into the leftmost open column with enough remaining y-room, stacking
-   upward from `y = 0`; open a new column to the right of all of them when none has room. A
-   column's thickness is fixed by its first part and step 2 guarantees no later part is thicker,
-   so the layout cannot overlap.
+2. Sort by decreasing chosen y-extent, i.e. by shelf height.
+3. First fit: drop each part onto the lowest open shelf with enough remaining x-room, packing
+   rightward from `x = 0`; open a new shelf above all of them when none has room. A shelf's height
+   is fixed by its first part and step 2 guarantees no later part is taller, so the layout cannot
+   overlap.
 
 `--time-budget` is accepted for CLI compatibility and never consulted — the algorithm is
 deterministic and instant; `--seed` only travels into the solution's `solver` block; without

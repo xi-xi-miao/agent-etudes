@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1254.887" viewBox="0 0 1200 1254.887">
-  <rect x="0" y="0" width="1200" height="1254.887" fill="#ffffff" />
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="650.62" viewBox="0 0 600 650.62">
+  <rect x="0" y="0" width="600" height="650.62" fill="#ffffff" />
   <text x="24" y="40" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#111111" text-anchor="start">c001-demo-6</text>
-  <text x="24" y="60" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#555555" text-anchor="start">utilization 59.5%   |   used length 190   |   strip width 200   |   6 parts placed</text>
-  <rect x="24" y="76" width="1152" height="1154.887" fill="none" stroke="#888888" stroke-width="1" />
-  <path d="M 24 1230.887 L 601.444 1230.887 L 601.444 942.165 L 312.722 942.165 L 312.722 653.444 L 24 653.444 Z" fill="#4e79a7" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p001" />
-  <path d="M 24 653.444 L 601.444 653.444 L 601.444 364.722 L 312.722 364.722 L 312.722 76 L 24 76 Z" fill="#f28e2b" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p002" />
-  <path d="M 601.444 884.421 L 890.165 884.421 L 890.165 595.699 L 601.444 595.699 Z" fill="#e15759" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p003" />
-  <path d="M 601.444 1230.887 L 947.91 1230.887 L 601.444 884.421 Z" fill="#76b7b2" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p004" />
-  <path d="M 832.421 595.699 L 832.421 133.744 L 601.444 249.233 L 601.444 480.211 Z" fill="#59a14f" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p005" />
-  <path d="M 947.91 1230.887 L 1121.143 1230.887 L 1121.143 1057.654 L 947.91 1057.654 Z" fill="#edc948" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p006" />
-  <line x1="1121.143" y1="76" x2="1121.143" y2="1230.887" stroke="#c0392b" stroke-width="1" stroke-dasharray="6 4" />
+  <text x="24" y="60" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#555555" text-anchor="start">utilization 59.5%   |   used height 190   |   strip width 200   |   6 parts placed</text>
+  <rect x="24" y="76" width="552" height="550.62" fill="none" stroke="#888888" stroke-width="1" />
+  <path d="M 24 626.62 L 300 626.62 L 300 488.62 L 162 488.62 L 162 350.62 L 24 350.62 Z" fill="#4e79a7" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p001" />
+  <path d="M 300 626.62 L 576 626.62 L 576 488.62 L 438 488.62 L 438 350.62 L 300 350.62 Z" fill="#f28e2b" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p002" />
+  <path d="M 189.6 350.62 L 327.6 350.62 L 327.6 212.62 L 189.6 212.62 Z" fill="#e15759" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p003" />
+  <path d="M 24 350.62 L 189.6 350.62 L 24 185.02 Z" fill="#76b7b2" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p004" />
+  <path d="M 327.6 350.62 L 548.4 350.62 L 493.2 240.22 L 382.8 240.22 Z" fill="#59a14f" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p005" />
+  <path d="M 24 185.02 L 106.8 185.02 L 106.8 102.22 L 24 102.22 Z" fill="#edc948" fill-rule="evenodd" fill-opacity="0.6" stroke="#222222" stroke-width="1" stroke-linejoin="round" data-part-id="p006" />
+  <line x1="24" y1="102.22" x2="576" y2="102.22" stroke="#c0392b" stroke-width="1" stroke-dasharray="6 4" />
 </svg>

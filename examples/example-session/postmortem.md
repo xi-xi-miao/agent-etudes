@@ -18,7 +18,7 @@ generate → solve → validate round trip as a failing test.
 Twice, and the second one was the session.
 
 The `TAKEOVER` at +2:05 (@e4d7b13) was reactive: the agent reported the packer
-finished while three parts sat past `y = W`, and I rewrote the containment test
+finished while three parts sat past `x = W`, and I rewrote the containment test
 by hand rather than explain it a third time. That cost about 35 minutes and it
 is not the move I would defend.
 

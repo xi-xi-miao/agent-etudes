@@ -134,8 +134,8 @@ def test_improved_layout_is_visibly_tighter(tmp_path):
         )
     )
     assert (
-        improved_report["measures"]["used_length"]
-        < baseline_report["measures"]["used_length"]
+        improved_report["measures"]["used_height"]
+        < baseline_report["measures"]["used_height"]
     )
 
 
@@ -143,8 +143,9 @@ def test_improved_layout_interlocks_the_l_shapes():
     """The two L-shapes plus the 50x50 square tile a rectangle exactly.
 
     This is what makes the figure worth looking at, so it is pinned: the union
-    of p001, p002 and p003 is the solid 150x150 block spanning y in [50, 200]
-    minus the two 50x50 corners, i.e. their areas add up with no loss at all.
+    of p001, p002 and p003 is the solid 150x150 block in the bottom-left corner
+    of the strip (x and y in [0, 150]) minus two 50x50 corners, i.e. their
+    areas add up with no loss at all.
     """
     from shapely.ops import unary_union
 
@@ -155,11 +156,11 @@ def test_improved_layout_interlocks_the_l_shapes():
     trio = [polys["p001"], polys["p002"], polys["p003"]]
     union = unary_union(trio)
     assert union.area == pytest.approx(sum(p.area for p in trio), abs=1e-6)
-    assert union.bounds == pytest.approx((0.0, 50.0, 150.0, 200.0), abs=1e-6)
+    assert union.bounds == pytest.approx((0.0, 0.0, 150.0, 150.0), abs=1e-6)
 
     # The 50x50 square sits inside the notch shared by the two L-shapes: it is
     # flush against both of them, and neither reaches into its interior.
-    # ``touches()`` is deliberately not used -- the 180 degree placement carries
+    # ``touches()`` is deliberately not used -- the 270 degree placement carries
     # ~1e-14 of floating-point noise, which is well inside TOL_AREA but enough
     # to make an exact-boundary predicate flip.
     for l_id in ("p001", "p002"):

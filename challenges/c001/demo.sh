@@ -185,17 +185,17 @@ with open(sys.argv[1], encoding="utf-8") as handle:
             (
                 obj.get("instance_id", "?"),
                 measures.get("utilization_pct", obj.get("utilization_pct")),
-                measures.get("used_length", obj.get("used_length")),
+                measures.get("used_height", obj.get("used_height")),
                 bool(obj.get("valid")),
             )
         )
 
 rows.sort(key=lambda row: row[0])
-print("| instance | utilization % | used length |")
+print("| instance | utilization % | used height |")
 print("| --- | ---: | ---: |")
-for instance_id, utilization, length, valid in rows:
+for instance_id, utilization, height, valid in rows:
     util = "n/a" if utilization is None else "%.1f" % float(utilization)
-    used = "n/a" if length is None else "%.3f" % float(length)
+    used = "n/a" if height is None else "%.3f" % float(height)
     flag = "" if valid else "  (NOT VALID)"
     print("| %s | %s | %s |%s" % (instance_id, util, used, flag))
 PY

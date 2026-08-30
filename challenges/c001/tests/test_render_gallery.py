@@ -59,12 +59,14 @@ def holed_instance(tiny_instance):
 
 @pytest.fixture
 def hand_solution():
+    """The square on the floor, the triangle above it, the small square beside
+    the triangle: used height 80 on a 100-wide strip."""
     return {
         "instance_id": "c001-t3-dev-01",
         "solver": {"name": "hand", "version": "0"},
         "placements": [
             {"part_id": "p001", "translation": [0.0, 0.0], "rotation_deg": 0.0},
-            {"part_id": "p002", "translation": [50.0, 0.0], "rotation_deg": 0.0},
+            {"part_id": "p002", "translation": [0.0, 50.0], "rotation_deg": 0.0},
             {"part_id": "p003", "translation": [50.0, 50.0], "rotation_deg": 0.0},
         ],
     }
@@ -79,6 +81,12 @@ def _texts(root):
     return [(el.text or "") for el in root.findall(Q % "text")]
 
 
+def _outline(root):
+    """The strip outline: the one unfilled ``<rect>`` of a layout SVG."""
+    (rect,) = [r for r in root.findall(Q % "rect") if r.get("fill") == "none"]
+    return rect
+
+
 # ---------------------------------------------------------------------------
 # render.py -- solution mode
 # ---------------------------------------------------------------------------
@@ -90,8 +98,8 @@ def test_solution_svg_is_wellformed_svg(holed_instance, hand_solution, tmp_path)
     root = _parse(out)
     assert root.tag == Q % "svg"
     assert root.get("viewBox")
-    # width ~1200 px unless the height cap bites; here it does not.
-    assert 1100.0 <= float(root.get("width")) <= 1200.0
+    # Nothing sticks out of the strip, so the canvas is exactly the target width.
+    assert float(root.get("width")) == pytest.approx(render.TARGET_WIDTH)
 
 
 def test_solution_svg_has_exactly_one_dashed_line(holed_instance, hand_solution):
@@ -99,34 +107,90 @@ def test_solution_svg_has_exactly_one_dashed_line(holed_instance, hand_solution)
     lines = root.findall(Q % "line")
     assert len(lines) == 1
     assert lines[0].get("stroke-dasharray")
-    # the marker is vertical, at the used length
-    assert lines[0].get("x1") == lines[0].get("x2")
+    # the marker is horizontal, at the used height
+    assert lines[0].get("y1") == lines[0].get("y2")
 
 
 def test_strip_outline_and_marker_are_where_the_geometry_says(holed_instance, hand_solution):
-    """The dashed marker sits at used_length inside a strip drawn to draw_length."""
+    """The dashed marker sits at used_height inside a strip drawn to draw_height,
+    with y = 0 at the bottom of the outline."""
     root = _parse(render.svg_string(holed_instance, hand_solution))
     outline = [r for r in root.findall(Q % "rect") if r.get("fill") == "none"]
     assert len(outline) == 1
     rect = outline[0]
-    x0, width = float(rect.get("x")), float(rect.get("width"))
-    used_len, _, _ = render.layout_measures(holed_instance, hand_solution)
-    draw_len = max(used_len * render.LENGTH_HEADROOM, render.MIN_DRAW_LENGTH)
-    assert draw_len == pytest.approx(100.0)  # the minimum floor bites here
+    y0, height = float(rect.get("y")), float(rect.get("height"))
+    used_h, _, _ = render.layout_measures(holed_instance, hand_solution)
+    draw_h = max(used_h * render.HEIGHT_HEADROOM, render.MIN_DRAW_HEIGHT)
+    assert draw_h == pytest.approx(100.0)  # the minimum floor bites here
 
     line = root.findall(Q % "line")[0]
-    assert float(line.get("x1")) == pytest.approx(x0 + width * used_len / draw_len, abs=0.01)
-    # the outline is as tall as the strip is wide, in the same scale
-    assert float(rect.get("height")) == pytest.approx(
-        width * holed_instance["strip_width"] / draw_len, rel=1e-9
+    # y grows downward in SVG, so the marker is measured up from the bottom edge
+    assert float(line.get("y1")) == pytest.approx(
+        y0 + height * (draw_h - used_h) / draw_h, abs=0.01
+    )
+    assert y0 < float(line.get("y1")) < y0 + height
+    # the outline is as wide as the strip, in the same scale
+    assert float(rect.get("width")) == pytest.approx(
+        height * holed_instance["strip_width"] / draw_h, rel=1e-9
     )
     # y is flipped in Python: no mirroring transform on any element
     assert "scale(1,-1)" not in ET.tostring(root, encoding="unicode")
     assert root.get("transform") is None
 
 
-def test_tall_narrow_layout_keeps_the_header_inside_the_viewport():
-    """A checkpoint layout (few parts near x=0, W=1000) must not clip the header."""
+def test_the_floor_is_at_the_bottom_of_the_picture(holed_instance, hand_solution):
+    """A part at y = 0 is drawn against the bottom edge of the strip outline."""
+    root = _parse(render.svg_string(holed_instance, hand_solution))
+    rect = [r for r in root.findall(Q % "rect") if r.get("fill") == "none"][0]
+    bottom = float(rect.get("y")) + float(rect.get("height"))
+    p001 = [p for p in root.findall(Q % "path") if p.get("data-part-id") == "p001"][0]
+    ys = [float(v) for v in re.findall(r"-?\d+(?:\.\d+)?", p001.get("d"))][1::2]
+    assert max(ys) == pytest.approx(bottom, abs=0.01)
+
+
+def test_layouts_of_one_instance_share_a_scale(holed_instance, hand_solution):
+    """Two layouts of the same instance are drawn at one scale: same canvas
+    width, same strip width in pixels, and the canvas height follows the used
+    height -- so the better layout is simply the shorter picture."""
+    taller = json.loads(json.dumps(hand_solution))
+    taller["placements"][2]["translation"] = [50.0, 500.0]
+    roots = [_parse(render.svg_string(holed_instance, s)) for s in (hand_solution, taller)]
+    rects = [_outline(root) for root in roots]
+    assert roots[0].get("width") == roots[1].get("width")
+    assert rects[0].get("width") == rects[1].get("width")
+    heights = [
+        max(
+            render.layout_measures(holed_instance, s)[0] * render.HEIGHT_HEADROOM,
+            render.MIN_DRAW_HEIGHT,
+        )
+        for s in (hand_solution, taller)
+    ]
+    assert float(rects[1].get("height")) / float(rects[0].get("height")) == pytest.approx(
+        heights[1] / heights[0], rel=1e-9
+    )
+    assert float(roots[1].get("height")) > float(roots[0].get("height"))
+
+
+def test_a_layout_that_leaves_the_strip_keeps_the_shared_scale(holed_instance, hand_solution):
+    """The scale is fixed by the strip width alone: a part hanging past x = W
+    widens the canvas but leaves the strip outline -- and so every other layout
+    of the instance -- at the same pixel width and height."""
+    spilling = json.loads(json.dumps(hand_solution))
+    spilling["placements"][2]["translation"] = [150.0, 50.0]  # p003 past x = W = 100
+    clean = _parse(render.svg_string(holed_instance, hand_solution))
+    spilt = _parse(render.svg_string(holed_instance, spilling))
+    rects = [_outline(root) for root in (clean, spilt)]
+    assert float(rects[1].get("width")) == pytest.approx(render.TARGET_WIDTH - 2 * render.MARGIN)
+    assert rects[0].get("width") == rects[1].get("width")
+    assert rects[0].get("height") == rects[1].get("height")
+    assert float(spilt.get("width")) > float(clean.get("width"))
+    assert spilt.get("height") == clean.get("height")
+
+
+def test_runaway_layout_keeps_the_header_inside_the_viewport():
+    """A part placed absurdly far up the strip, or absurdly far to the side
+    (W=1000), must not blow the canvas past the caps or clip the header when
+    the scale is shrunk to fit."""
     instance = {
         "instance_id": "c001-t1-dev-01",
         "challenge": "c001",
@@ -143,15 +207,52 @@ def test_tall_narrow_layout_keeps_the_header_inside_the_viewport():
             for i in range(40)
         ],
     }
-    solution = {
+    upward = {
         "instance_id": "c001-t1-dev-01",
-        "placements": [{"part_id": "p000", "translation": [100.0, 0.0], "rotation_deg": 0.0}],
+        "placements": [{"part_id": "p000", "translation": [0.0, 200000.0], "rotation_deg": 0.0}],
     }
-    for svg in (render.svg_string(instance, solution), render.svg_string(instance)):
+    sideways = {
+        "instance_id": "c001-t1-dev-01",
+        "placements": [{"part_id": "p000", "translation": [50000.0, 0.0], "rotation_deg": 0.0}],
+    }
+    for svg in (
+        render.svg_string(instance, upward),
+        render.svg_string(instance, sideways),
+        render.svg_string(instance),
+    ):
         root = _parse(svg)
         assert float(root.get("width")) >= render.MIN_CANVAS_WIDTH
+        assert float(root.get("width")) <= render.MAX_WIDTH + 1.0
         assert float(root.get("height")) <= render.MAX_HEIGHT + 1.0
         assert root.get("viewBox") == "0 0 {} {}".format(root.get("width"), root.get("height"))
+
+
+def test_baseline_sized_layout_keeps_the_shared_scale():
+    """The caps must not bite for a layout the size the baseline produces on the
+    dev set (W = 1000, ~6500 tall), or two such layouts would stop comparing."""
+    instance = {
+        "instance_id": "c001-t1-dev-01",
+        "challenge": "c001",
+        "tier": 1,
+        "seed": 1,
+        "strip_width": 1000.0,
+        "rotations_allowed": "free",
+        "parts": [
+            {
+                "id": "p001",
+                "exterior": [[0.0, 0.0], [100.0, 0.0], [100.0, 100.0], [0.0, 100.0]],
+                "holes": [],
+            }
+        ],
+    }
+    solution = {
+        "instance_id": "c001-t1-dev-01",
+        "placements": [{"part_id": "p001", "translation": [0.0, 6400.0], "rotation_deg": 0.0}],
+    }
+    root = _parse(render.svg_string(instance, solution))
+    assert float(root.get("width")) == pytest.approx(render.TARGET_WIDTH)
+    rect = [r for r in root.findall(Q % "rect") if r.get("fill") == "none"][0]
+    assert float(rect.get("width")) == pytest.approx(render.TARGET_WIDTH - 2 * render.MARGIN)
 
 
 def test_solution_svg_has_one_evenodd_path_per_part(holed_instance, hand_solution):
@@ -171,17 +272,17 @@ def test_solution_svg_has_one_evenodd_path_per_part(holed_instance, hand_solutio
     assert by_id["p002"].get("d").count("M") == 1
 
 
-def test_solution_header_reports_utilization_and_used_length(holed_instance, hand_solution):
+def test_solution_header_reports_utilization_and_used_height(holed_instance, hand_solution):
     root = _parse(render.svg_string(holed_instance, hand_solution))
     header = " ".join(_texts(root))
-    used_len, util, placed = render.layout_measures(holed_instance, hand_solution)
-    assert used_len == pytest.approx(80.0)
+    used_h, util, placed = render.layout_measures(holed_instance, hand_solution)
+    assert used_h == pytest.approx(80.0)
     assert placed == 3
     # 1600 - 400 + 450 + 400 = 2050 over 100 * 80
     assert util == pytest.approx(2050.0 / 8000.0)
     assert "utilization" in header
     assert geom.format_pct(util) + "%" in header
-    assert "used length" in header
+    assert "used height" in header
     assert holed_instance["instance_id"] in header
 
 
@@ -198,11 +299,11 @@ def test_header_carries_no_participant_information(holed_instance, hand_solution
     assert "hand" not in " ".join(_texts(_parse(text)))
 
 
-def test_used_length_marker_moves_with_the_layout(holed_instance, hand_solution):
+def test_used_height_marker_moves_with_the_layout(holed_instance, hand_solution):
     shifted = json.loads(json.dumps(hand_solution))
-    shifted["placements"][1]["translation"] = [500.0, 0.0]
-    used_len, util, _ = render.layout_measures(holed_instance, shifted)
-    assert used_len == pytest.approx(530.0)
+    shifted["placements"][1]["translation"] = [0.0, 500.0]
+    used_h, util, _ = render.layout_measures(holed_instance, shifted)
+    assert used_h == pytest.approx(530.0)
     base_used, base_util, _ = render.layout_measures(holed_instance, hand_solution)
     assert util < base_util
 
@@ -217,9 +318,9 @@ def test_rotated_placement_is_rendered(holed_instance):
             {"part_id": "p003", "translation": [0.0, 60.0], "rotation_deg": 0.0},
         ],
     }
-    used_len, _, placed = render.layout_measures(holed_instance, solution)
+    used_h, _, placed = render.layout_measures(holed_instance, solution)
     assert placed == 3
-    assert used_len == pytest.approx(80.0)
+    assert used_h == pytest.approx(80.0)
     root = _parse(render.svg_string(holed_instance, solution))
     assert len(root.findall(Q % "path")) == 3
 
@@ -250,6 +351,8 @@ def test_catalog_mode_draws_one_path_per_part_and_no_line(holed_instance, tmp_pa
     out = render.write_svg(holed_instance, None, tmp_path / "catalog.svg")
     root = _parse(out)
     assert root.tag == Q % "svg"
+    # the catalog keeps its own, wider canvas: it is not a layout to compare
+    assert float(root.get("width")) == pytest.approx(render.CATALOG_WIDTH)
     assert len(root.findall(Q % "path")) == len(holed_instance["parts"])
     assert root.findall(Q % "line") == []
     texts = {t.strip() for t in _texts(root)}
@@ -349,7 +452,7 @@ def _solution(instance_id, shift):
         "instance_id": instance_id,
         "placements": [
             {"part_id": "p001", "translation": [0.0, 0.0], "rotation_deg": 0.0},
-            {"part_id": "p002", "translation": [float(shift), 50.0], "rotation_deg": 0.0},
+            {"part_id": "p002", "translation": [50.0, float(shift)], "rotation_deg": 0.0},
         ],
     }
 
@@ -362,7 +465,7 @@ def results_tree(tmp_path):
     geom.write_json(_square_instance("c001-t2-dev-02", 2), instances / "c001-t2-dev-02.json")
 
     root = tmp_path / "results" / "c001"
-    # alice sorts first alphabetically but uses MORE length: card order must not
+    # alice sorts first alphabetically but uses MORE height: card order must not
     # follow the measure.
     alice = geom.write_json(
         _solution("c001-t1-dev-01", 300), root / "alice" / "2" / "solutions" / "x.json"
@@ -464,6 +567,15 @@ def test_gallery_cli(results_tree, tmp_path, run_tool):
     assert html.count('<div class="card">') == 3
 
 
+def test_cards_are_one_width_and_bottom_aligned():
+    """Renderer and gallery contracts: every card the same width and bottom-aligned,
+    so the strips of one instance stand on one floor at one scale."""
+    cards = re.search(r"\.cards\s*\{([^}]*)\}", gallery.CSS).group(1)
+    card = re.search(r"\.card\s*\{([^}]*)\}", gallery.CSS).group(1)
+    assert "align-items: flex-end" in cards
+    assert re.search(r"flex:\s*0\s+1\s", card), "cards must not grow to fill a row"
+
+
 def test_card_provenance_is_relative_and_leaks_no_absolute_path(results_tree, monkeypatch):
     """A committed gallery must not carry the builder's home directory."""
     monkeypatch.chdir(results_tree["tmp"])
@@ -517,14 +629,15 @@ def test_no_forbidden_vocabulary_in_the_sources(tools_dir):
 
 
 def test_parts_outside_the_strip_stay_inside_the_viewbox(tiny_instance):
-    """An INVALID layout (negative x, past y = W) must be drawn, not clipped away."""
+    """An INVALID layout (negative x, past x = W, below the floor) must be
+    drawn, not clipped away."""
     instance = tiny_instance()
     solution = {
         "instance_id": instance["instance_id"],
         "placements": [
             {"part_id": "p001", "translation": [-60.0, 10.0], "rotation_deg": 0.0},
-            {"part_id": "p002", "translation": [50.0, 130.0], "rotation_deg": 0.0},
-            {"part_id": "p003", "translation": [10.0, 10.0], "rotation_deg": 0.0},
+            {"part_id": "p002", "translation": [90.0, 30.0], "rotation_deg": 0.0},
+            {"part_id": "p003", "translation": [10.0, -20.0], "rotation_deg": 0.0},
         ],
     }
     root = _parse(render.svg_string(instance, solution))

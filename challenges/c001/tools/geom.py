@@ -10,7 +10,8 @@ surface.  Import it after putting the tools directory on ``sys.path``::
 
 Geometry conventions (authoritative, see the challenge README):
 
-* The strip occupies ``0 <= y <= W`` and ``x >= 0``, unbounded in ``+x``.
+* The strip stands up: it occupies ``0 <= x <= W`` and ``y >= 0``, unbounded
+  in ``+y``.  The width runs along x; material is consumed upward along y.
 * A polygon ring is a list of ``[x, y]`` vertices, implicitly closed (the first
   vertex is NOT repeated), simple.  Exterior rings are counter-clockwise, hole
   rings clockwise.
@@ -54,7 +55,7 @@ __all__ = [
     "transform_polygon",
     "transform_ring",
     "placed_polygons",
-    "used_length",
+    "used_height",
     "utilization",
     "format_pct",
     "total_area",
@@ -465,19 +466,19 @@ def placed_polygons(instance, solution):
 # --------------------------------------------------------------------------
 
 
-def used_length(polys_iterable):
-    """Used length of a layout: the largest x reached by any placed polygon."""
-    maxima = [poly.bounds[2] for poly in polys_iterable]
+def used_height(polys_iterable):
+    """Used height of a layout: the largest y reached by any placed polygon."""
+    maxima = [poly.bounds[3] for poly in polys_iterable]
     if not maxima:
         return 0.0
     return max(maxima)
 
 
-def utilization(total_part_area, strip_width, used_len):
-    """Total part area divided by the consumed strip rectangle, clamped to [0, 1]."""
-    if used_len <= 0 or strip_width <= 0:
+def utilization(total_part_area, strip_width, used_h):
+    """Total part area divided by the consumed strip rectangle ``W x H``, clamped to [0, 1]."""
+    if used_h <= 0 or strip_width <= 0:
         return 0.0
-    value = total_part_area / (strip_width * used_len)
+    value = total_part_area / (strip_width * used_h)
     return min(1.0, max(0.0, value))
 
 

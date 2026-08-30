@@ -13,40 +13,40 @@
       "part_id": "p002",
       "rotation_deg": 0.0,
       "translation": [
-        0.0,
-        100.0
+        100.0,
+        0.0
       ]
     },
     {
       "part_id": "p004",
       "rotation_deg": 0.0,
       "translation": [
-        100.0,
-        0.0
+        0.0,
+        100.0
       ]
     },
     {
       "part_id": "p003",
       "rotation_deg": 0.0,
       "translation": [
-        100.0,
-        60.0
+        60.0,
+        100.0
       ]
     },
     {
       "part_id": "p005",
-      "rotation_deg": 90.0,
+      "rotation_deg": 0.0,
       "translation": [
-        140.0,
-        110.0
+        110.0,
+        100.0
       ]
     },
     {
       "part_id": "p006",
       "rotation_deg": 0.0,
       "translation": [
-        160.0,
-        0.0
+        0.0,
+        160.0
       ]
     }
   ],

@@ -6,9 +6,10 @@ Two modes:
 * **Instance only** -- a "parts catalog": every part drawn in its own cell of a
   grid, each cell sized to the largest part bounding box, with the part id
   written under it.
-* **Instance + solution** -- the strip outline, a dashed vertical line at the
-  used length, and every placed part filled from a categorical palette with its
-  holes visibly punched out.
+* **Instance + solution** -- the strip standing up (width across the page,
+  ``y = 0`` at the bottom), a dashed horizontal line at the used height, and
+  every placed part filled from a categorical palette with its holes visibly
+  punched out.
 
 Usage::
 
@@ -20,13 +21,20 @@ Conventions and deliberate choices:
   There is no ``transform="scale(1,-1)"`` group -- a negative scale would also
   mirror every text label.
 * World coordinates are converted to pixels in Python as well, so the emitted
-  SVG can use literal ``stroke-width="1"`` and ``font-size`` values.  The
-  drawing is scaled to roughly 1200 px wide (less when the height cap bites).
+  SVG can use literal ``stroke-width="1"`` and ``font-size`` values.
+* **One scale per strip width.**  A layout is drawn with the strip width mapped
+  to a fixed pixel width (:data:`TARGET_WIDTH`), and the canvas grows with the
+  used height.  Every layout of one instance therefore comes out at the same
+  scale, and two of them compare by height alone: the better layout is the
+  shorter picture.  A layout drops below that shared scale only when its
+  picture would not fit the :data:`MAX_WIDTH` / :data:`MAX_HEIGHT` caps; their
+  comment states the thresholds.  The parts catalog is scaled to
+  :data:`CATALOG_WIDTH` instead.
 * Placed rings come from :func:`geom.transform_ring` -- pure Python vertex
   arithmetic -- never from coordinates read back out of a Shapely geometry.
 * Holes are punched out by emitting the exterior and every hole as subpaths of
   one ``<path>`` with ``fill-rule="evenodd"``.
-* The header carries the instance id, the utilization and the used length, and
+* The header carries the instance id, the utilization and the used height, and
   nothing else: no participant names, no comparison between attempts.
 * Rendering is deliberately tolerant so it stays useful as a debugging tool: a
   part with no placement is simply not drawn, and a placement naming an unknown
@@ -54,12 +62,22 @@ __all__ = ["svg_string", "write_svg", "layout_measures", "main"]
 # Layout constants (all in output pixels unless noted)
 # ---------------------------------------------------------------------------
 
-TARGET_WIDTH = 1200.0
-MAX_HEIGHT = 1400.0
-#: Floor on the canvas width.  A world box that is much taller than it is long
-#: (an early checkpoint layout, a catalog of tall parts) hits the height cap,
-#: which shrinks the scale and with it the canvas -- narrow enough to clip the
-#: header text at the viewport edge.  The extra width is just background.
+#: Canvas width of a layout whose parts all lie inside the strip: the strip
+#: width maps to ``TARGET_WIDTH - 2 * MARGIN`` pixels, whatever the instance.
+TARGET_WIDTH = 600.0
+#: Canvas width of the parts catalog.
+CATALOG_WIDTH = 1200.0
+#: Safety caps.  A layout is only shrunk below its shared scale when its
+#: picture would not fit inside these: a part flung more than about two strip
+#: widths sideways (MAX_WIDTH), or a layout more than about twenty strip widths
+#: tall (MAX_HEIGHT) -- three times the height the baseline reaches on the dev
+#: set (W = 1000, up to ~6400), so every layout short of a runaway keeps the
+#: shared scale.
+MAX_WIDTH = 1200.0
+MAX_HEIGHT = 12000.0
+#: Floor on the canvas width.  When a cap bites, the scale shrinks and with it
+#: the canvas -- narrow enough to clip the header text at the viewport edge.
+#: The extra width is just background.
 MIN_CANVAS_WIDTH = 560.0
 MARGIN = 24.0
 HEADER_HEIGHT = 52.0
@@ -78,8 +96,11 @@ SUBTITLE_SIZE = 12.0
 CATALOG_LABEL_SIZE = 11.0
 PART_LABEL_SIZE = 9.0
 
-MIN_DRAW_LENGTH = 100.0
-LENGTH_HEADROOM = 1.05
+#: The strip outline is drawn to ``used_height * HEIGHT_HEADROOM``, but never
+#: shorter than MIN_DRAW_HEIGHT world units, so an empty layout still shows a
+#: strip.
+MIN_DRAW_HEIGHT = 100.0
+HEIGHT_HEADROOM = 1.05
 
 
 # ---------------------------------------------------------------------------
@@ -154,12 +175,22 @@ def _projector(world_minx, world_maxy, scale, top):
     return to_px
 
 
-def _fit(world_w, world_h):
-    """Scale factor and canvas size for a world box of ``world_w`` x ``world_h``."""
+def _fit(world_w, world_h, reference_w, target_w):
+    """Scale factor and canvas size for a world box of ``world_w`` x ``world_h``.
+
+    The scale maps ``reference_w`` world units to ``target_w - 2 * MARGIN``
+    pixels; the canvas is then whatever the world box needs at that scale.
+    The scale is only reduced when the box would exceed :data:`MAX_WIDTH` or
+    :data:`MAX_HEIGHT`.
+    """
     world_w = max(float(world_w), 1e-9)
     world_h = max(float(world_h), 1e-9)
-    scale = (TARGET_WIDTH - 2.0 * MARGIN) / world_w
+    reference_w = max(float(reference_w), 1e-9)
+    scale = (target_w - 2.0 * MARGIN) / reference_w
+    width_budget = MAX_WIDTH - 2.0 * MARGIN
     height_budget = MAX_HEIGHT - 2.0 * MARGIN - HEADER_HEIGHT
+    if world_w * scale > width_budget:
+        scale = width_budget / world_w
     if world_h * scale > height_budget:
         scale = height_budget / world_h
     canvas_w = max(2.0 * MARGIN + world_w * scale, MIN_CANVAS_WIDTH)
@@ -247,7 +278,7 @@ def _catalog_svg(instance, labels=False):
     world_w = columns * cell_w
     world_h = rows * cell_h
 
-    scale, canvas_w, canvas_h = _fit(world_w, world_h)
+    scale, canvas_w, canvas_h = _fit(world_w, world_h, world_w, CATALOG_WIDTH)
     top = MARGIN + HEADER_HEIGHT
     to_px = _projector(0.0, world_h, scale, top)
 
@@ -312,40 +343,40 @@ def _placed_rings(instance, solution):
     return placed
 
 
-def _used_length(placed):
-    used_len = 0.0
+def _used_height(placed):
+    used_h = 0.0
     for _, _, rings in placed:
         for ring in rings:
             for point in ring:
-                if point[0] > used_len:
-                    used_len = point[0]
-    return used_len
+                if point[1] > used_h:
+                    used_h = point[1]
+    return used_h
 
 
 def layout_measures(instance, solution):
-    """``(used_length, utilization, parts placed)`` for a layout.
+    """``(used_height, utilization, parts placed)`` for a layout.
 
     Shared with ``gallery.py`` so both compute the caption number the same way,
     from the two documents and never from a field stored in a file.
     """
     placed = _placed_rings(instance, solution)
-    used_len = _used_length(placed)
+    used_h = _used_height(placed)
     strip_width = float(instance.get("strip_width", geom.DEFAULT_STRIP_WIDTH))
-    return used_len, geom.utilization(geom.total_area(instance), strip_width, used_len), len(placed)
+    return used_h, geom.utilization(geom.total_area(instance), strip_width, used_h), len(placed)
 
 
 def _solution_svg(instance, solution, labels=False):
-    """Layout view: strip outline, dashed used-length marker, placed parts."""
+    """Layout view: strip outline, dashed used-height marker, placed parts."""
     strip_width = float(instance.get("strip_width", geom.DEFAULT_STRIP_WIDTH))
     placed = _placed_rings(instance, solution)
-    used_len = _used_length(placed)
+    used_h = _used_height(placed)
 
-    draw_len = max(used_len * LENGTH_HEADROOM, MIN_DRAW_LENGTH)
-    util = geom.utilization(geom.total_area(instance), strip_width, used_len)
+    draw_h = max(used_h * HEIGHT_HEADROOM, MIN_DRAW_HEIGHT)
+    util = geom.utilization(geom.total_area(instance), strip_width, used_h)
 
     # The world box is the strip plus whatever sticks out of it, so an INVALID
-    # layout (part at negative x, part past y = W) is drawn, not hidden.
-    world_minx, world_miny, world_maxx, world_maxy = 0.0, 0.0, draw_len, strip_width
+    # layout (part at negative x or y, part past x = W) is drawn, not hidden.
+    world_minx, world_miny, world_maxx, world_maxy = 0.0, 0.0, strip_width, draw_h
     for _, _, rings in placed:
         for ring in rings:
             for x, y in ring:
@@ -353,7 +384,11 @@ def _solution_svg(instance, solution, labels=False):
                 world_miny = min(world_miny, y)
                 world_maxx = max(world_maxx, x)
                 world_maxy = max(world_maxy, y)
-    scale, canvas_w, canvas_h = _fit(world_maxx - world_minx, world_maxy - world_miny)
+    # The scale is fixed by the strip width alone, so every layout of this
+    # instance is drawn at the same scale and the pictures compare by height.
+    scale, canvas_w, canvas_h = _fit(
+        world_maxx - world_minx, world_maxy - world_miny, strip_width, TARGET_WIDTH
+    )
     top = MARGIN + HEADER_HEIGHT
     to_px = _projector(world_minx, world_maxy, scale, top)
 
@@ -361,15 +396,15 @@ def _solution_svg(instance, solution, labels=False):
     body.extend(
         _header(
             str(instance.get("instance_id", "instance")),
-            "utilization {}%   |   used length {}   |   strip width {}   |   {} parts placed".format(
-                geom.format_pct(util), _f(used_len), _f(strip_width), len(placed)
+            "utilization {}%   |   used height {}   |   strip width {}   |   {} parts placed".format(
+                geom.format_pct(util), _f(used_h), _f(strip_width), len(placed)
             ),
         )
     )
 
-    # Strip outline: from x = 0 to the drawn length, full width.
-    x0, y0 = to_px(0.0, strip_width)
-    x1, y1 = to_px(draw_len, 0.0)
+    # Strip outline: full width, from y = 0 (the bottom) up to the drawn height.
+    x0, y0 = to_px(0.0, draw_h)
+    x1, y1 = to_px(strip_width, 0.0)
     body.append(
         "  <rect {} />".format(
             _attrs(
@@ -389,17 +424,17 @@ def _solution_svg(instance, solution, labels=False):
     for index, part_id, rings in placed:
         body.append(_part_path(rings, to_px, geom.PALETTE[index % len(geom.PALETTE)], part_id))
 
-    # The one and only <line> in the document: the used-length marker.
-    lx, ly_top = to_px(used_len, strip_width)
-    _, ly_bottom = to_px(used_len, 0.0)
+    # The one and only <line> in the document: the used-height marker.
+    lx_left, ly = to_px(0.0, used_h)
+    lx_right, _ = to_px(strip_width, used_h)
     body.append(
         "  <line {} />".format(
             _attrs(
                 [
-                    ("x1", _f(lx)),
-                    ("y1", _f(ly_top)),
-                    ("x2", _f(lx)),
-                    ("y2", _f(ly_bottom)),
+                    ("x1", _f(lx_left)),
+                    ("y1", _f(ly)),
+                    ("x2", _f(lx_right)),
+                    ("y2", _f(ly)),
                     ("stroke", USED_LINE_COLOR),
                     ("stroke-width", "1"),
                     ("stroke-dasharray", "6 4"),
