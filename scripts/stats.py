@@ -13,7 +13,8 @@ sectioned per challenge and then over everything found:
 2. glyph distribution,
 3. motif counts,
 4. ASCII phase timelines -- one row per (challenge, participant, attempt),
-   one character per five minutes,
+   one character per five minutes, each cell sampled at its own minute (so a
+   phase that begins and ends between two cells never shows),
 5. the brilliancies and blunders reel -- every ``!!`` and ``??`` line with its
    comment, alphabetical by participant and then by attempt.
 
@@ -353,7 +354,16 @@ def _count_tables(
 
 def _timelines(sessions: list[Session], notes: list[str]) -> list[str]:
     # The legend is printed once, in the report preamble.
-    out = ["Phase timelines", f"  one character per {MINUTES_PER_CELL} minutes", ""]
+    out = [
+        "Phase timelines",
+        f"  one character per {MINUTES_PER_CELL} minutes: cell i is sampled at "
+        f"minute {MINUTES_PER_CELL} * i and shows the",
+        "  phase of the latest move at or before that mark. A phase that begins "
+        "and ends",
+        "  between two marks is invisible here, and a phase carries across cells "
+        "with no move.",
+        "",
+    ]
     width = max(len(s.label) for s in sessions)
     for session in sessions:
         cells, note = timeline_cells(session)

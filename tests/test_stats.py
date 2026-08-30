@@ -258,6 +258,17 @@ def test_timeline_legend_printed_once(tree, capsys):
     assert out.count("Phase timelines") == 2  # one section per challenge
 
 
+def test_timeline_header_states_the_sampling_rule(tree, capsys):
+    """A reader must not mistake a missing letter for a missing phase."""
+    _, out, _ = run(capsys, str(tree))
+    header = out.split("Phase timelines", 1)[1].split("\n\n", 1)[0]
+    assert "cell i is sampled at minute 5 * i" in header
+    assert "latest move at or before that mark" in header
+    # the consequence, spelled out: a short phase inside one cell is invisible
+    assert "begins and ends" in header and "invisible" in header
+    assert "carries across cells with no move" in header
+
+
 def test_timeline_falls_back_to_the_last_timestamp_with_a_warning(tree, capsys):
     _, out, err = run(capsys, str(tree))
     timeline = timeline_for(out, "c002/carol/1")

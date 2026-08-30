@@ -227,7 +227,8 @@ def test_rerun_keeps_the_narrative_and_refreshes_the_blocks(
     assert "c001/bob/1" in block(second, "reel")
     assert "generated:start" not in block(second, "reel")
     assert "2 (bob, example)" in block(second, "wildcards")
-    for block_id in ("attempts", "reel", "wildcards"):
+    assert "- **Attempts collected:** 2" in block(second, "header")
+    for block_id in ("header", "attempts", "reel", "wildcards"):
         assert second.count(f"<!-- generated:start {block_id} -->") == 1
 
 
@@ -256,6 +257,115 @@ def test_other_challenges_are_left_out(tmp_path, repo_root, results_tree):
     assert "| example | 1 |" in block(text, "attempts")
     assert "c002" not in block(text, "reel")
     assert "1 (example)" in block(text, "wildcards")
+
+
+def test_header_block_carries_the_facts_the_tool_already_knows(
+    tmp_path, repo_root, results_tree
+):
+    out = tmp_path / "retros" / "c001"
+    assert run_retro(
+        repo_root, results_tree, out, "--gallery-cmd", gallery_stub()
+    ).returncode == 0
+
+    text = (out / "retro.md").read_text(encoding="utf-8")
+    header = block(text, "header")
+    assert "- **Attempts collected:** 1" in header
+    # taxonomy_version comes from the collected annotations, not from a guess
+    meta, _, _ = lib.parse_annotations_file(
+        results_tree / "c001" / "example" / "1" / "annotations.md"
+    )
+    assert f"- **Taxonomy version in force:** {meta['taxonomy_version']}" in header
+    # the one fact no tool can know stays a placeholder
+    assert "- **Round closed:** YYYY-MM-DD" in header
+    assert "TODO" in header
+    # and the template's placeholder bullets are gone, not duplicated
+    assert text.count("**Attempts collected:**") == 1
+    assert "**Attempts collected:** N" not in text
+    # the block sits in the preamble, above the first section
+    assert text.index("generated:start header") < text.index("## 1.")
+
+
+def test_header_keeps_a_round_closed_date_across_a_rerun(
+    tmp_path, repo_root, results_tree
+):
+    out = tmp_path / "retros" / "c001"
+    assert run_retro(
+        repo_root, results_tree, out, "--gallery-cmd", gallery_stub()
+    ).returncode == 0
+
+    retro_md = out / "retro.md"
+    first = retro_md.read_text(encoding="utf-8")
+    typed = re.sub(
+        r"- \*\*Round closed:\*\*.*", "- **Round closed:** 2026-09-30", first
+    )
+    retro_md.write_text(typed, encoding="utf-8")
+
+    # a second attempt arrives, so the generated facts really do change
+    second_dir = results_tree / "c001" / "bob" / "1"
+    second_dir.mkdir(parents=True)
+    example = results_tree / "c001" / "example" / "1"
+    for name in ("session.yaml", "annotations.md"):
+        (second_dir / name).write_text(
+            example.joinpath(name)
+            .read_text(encoding="utf-8")
+            .replace("participant: example", "participant: bob"),
+            encoding="utf-8",
+        )
+
+    assert run_retro(
+        repo_root, results_tree, out, "--gallery-cmd", gallery_stub()
+    ).returncode == 0
+    header = block(retro_md.read_text(encoding="utf-8"), "header")
+    assert "- **Round closed:** 2026-09-30" in header  # the human's date survives
+    assert "- **Attempts collected:** 2" in header  # the tool's fact is refreshed
+
+
+def test_header_block_replaces_plain_bullets_written_before_it_existed(
+    tmp_path, repo_root, results_tree
+):
+    """A retro.md from before the header block must not end up saying N and 1."""
+    out = tmp_path / "retros" / "c001"
+    assert run_retro(
+        repo_root, results_tree, out, "--gallery-cmd", gallery_stub()
+    ).returncode == 0
+
+    retro_md = out / "retro.md"
+    old_shape = re.sub(
+        r"<!-- generated:start header -->.*?<!-- generated:end header -->",
+        "- **Round closed:** YYYY-MM-DD\n"
+        "- **Taxonomy version in force:** 0.2\n"
+        "- **Attempts collected:** N",
+        retro_md.read_text(encoding="utf-8"),
+        flags=re.DOTALL,
+    )
+    retro_md.write_text(old_shape, encoding="utf-8")
+
+    proc = run_retro(repo_root, results_tree, out, "--gallery-cmd", gallery_stub())
+    assert proc.returncode == 0
+    text = retro_md.read_text(encoding="utf-8")
+    assert text.count("**Attempts collected:**") == 1
+    assert "- **Attempts collected:** 1" in block(text, "header")
+    # in place, not appended at the end
+    assert text.index("generated:start header") < text.index("## 1.")
+    assert "Round facts" not in text
+    assert "had no 'header' block" not in proc.stderr
+
+
+def test_progress_lines_are_flushed_in_order(tmp_path, repo_root, results_tree):
+    """Our own stdout is a pipe here; the gallery child writes to the same one."""
+    out = tmp_path / "retros" / "c001"
+    noisy = (
+        f"{sys.executable} -c "
+        "\"import sys,pathlib;"
+        "pathlib.Path(sys.argv[-1]).write_text('stub gallery');"
+        "print('GALLERY-CHILD-SPOKE')\" {out}"
+    )
+    proc = run_retro(repo_root, results_tree, out, "--gallery-cmd", noisy)
+    assert proc.returncode == 0, proc.stderr
+    assert "GALLERY-CHILD-SPOKE" in proc.stdout
+    assert proc.stdout.index("[retro] rendering the gallery") < proc.stdout.index(
+        "GALLERY-CHILD-SPOKE"
+    ), proc.stdout
 
 
 def test_missing_block_is_appended_with_a_notice(tmp_path, repo_root, results_tree):

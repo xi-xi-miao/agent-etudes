@@ -16,7 +16,10 @@ part of it so the maintainer only has to write the prose:
 The machine-derived sections live between ``<!-- generated:start <id> -->``
 and ``<!-- generated:end <id> -->`` markers. Re-running the script refreshes
 only what is between those markers: everything a human wrote in ``retro.md``
-survives, which is the whole point of running it more than once.
+survives, which is the whole point of running it more than once. That
+includes the ``header`` block's round-closed date -- the two facts beside it,
+the attempt count and the taxonomy version in force, come from the collected
+tree rather than from a maintainer's memory.
 
 Judgment call: the reel and the wildcard table are computed from the same
 ``results/`` tree that ``stats.py`` reads, rather than parsed back out of
@@ -68,6 +71,22 @@ what the round taught us and what changes because of it.
 """
 
 TODO_MARKER = "TODO: fill this in during the retro."
+
+#: The one header bullet no tool can know; it stays a placeholder until a
+#: maintainer replaces it, and a re-run carries whatever they wrote forward.
+ROUND_CLOSED_LABEL = "- **Round closed:**"
+ROUND_CLOSED_TODO = "YYYY-MM-DD (TODO: the date the round closed)"
+
+#: The header bullets a fresh document replaces with the ``header`` block.
+_HEADER_BULLET_RE = re.compile(r"^[ \t]*-[ \t]+\*\*")
+
+#: Headings used when a generated block has nowhere else to go.
+BLOCK_TITLES = {
+    "header": "Round facts",
+    "attempts": "Attempts index",
+    "reel": "Brilliancies and blunders reel",
+    "wildcards": "Wildcard review",
+}
 
 _BLOCK_RE = re.compile(
     r"<!--\s*generated:start(?:[ \t]+(?P<id>[a-z0-9-]+))?\s*-->"
@@ -144,6 +163,50 @@ def _wall_time(session: dict) -> str:
 # --------------------------------------------------------------------------
 # The generated blocks
 # --------------------------------------------------------------------------
+
+
+def taxonomy_version_in_force(sessions: list) -> str:
+    """The taxonomy version the collected annotations were written against.
+
+    Read from the annotation frontmatter rather than assumed, so a round that
+    straddles a taxonomy change says so instead of quietly picking one. With
+    nothing collected there is nothing to read, and the repository's current
+    version is the honest answer.
+    """
+    seen: list[str] = []
+    for session in sessions:
+        value = session.meta.get("taxonomy_version")
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text and text not in seen:
+            seen.append(text)
+    return ", ".join(sorted(seen)) if seen else lib.TAXONOMY_VERSION
+
+
+def build_header_block(sessions: list, round_closed: Optional[str] = None) -> str:
+    """The round's header bullets: two facts from the tools, one for a human.
+
+    The date a round closed is a decision, not a measurement, so it stays a
+    placeholder -- but ``round_closed`` carries a date a maintainer already
+    typed through a re-run, because a refresh must never eat prose.
+    """
+    closed = round_closed.strip() if isinstance(round_closed, str) else ""
+    return "\n".join(
+        [
+            f"{ROUND_CLOSED_LABEL} {closed or ROUND_CLOSED_TODO}",
+            f"- **Taxonomy version in force:** {taxonomy_version_in_force(sessions)}",
+            f"- **Attempts collected:** {len(sessions)}",
+        ]
+    )
+
+
+def existing_round_closed(text: str) -> Optional[str]:
+    """The ``Round closed`` value already in a ``retro.md``, if it has one."""
+    match = re.search(
+        r"^[ \t]*-[ \t]+\*\*Round closed:\*\*[ \t]*(?P<value>.*)$", text, re.MULTILINE
+    )
+    return match.group("value").strip() if match else None
 
 
 def build_attempts_table(sessions: list) -> str:
@@ -302,6 +365,34 @@ def _strip_table(lines: list[str]) -> list[str]:
     return [ln for ln in lines if not ln.lstrip().startswith("|")]
 
 
+def _splice_header(lines: list[str], block: str) -> list[str]:
+    """Put the ``header`` block where the template's header bullets were."""
+    hits = [i for i, line in enumerate(lines) if _HEADER_BULLET_RE.match(line)]
+    if not hits:
+        return lines + ["", *block.splitlines()]
+    return lines[: hits[0]] + block.splitlines() + lines[hits[-1] + 1 :]
+
+
+def _splice_header_into_preamble(text: str, block: str) -> Optional[str]:
+    """Fit the ``header`` block into a document written before it existed.
+
+    Such a ``retro.md`` carries the template's plain bullets and no markers.
+    Appending the block at the end would leave the document stating the
+    attempt count twice, placeholder first -- so the bullets are replaced
+    where they stand. Only the preamble is searched: a ``- **bold**`` bullet
+    further down belongs to somebody's prose. ``None`` when there is nothing
+    there to replace.
+    """
+    lines = text.splitlines()
+    end = next(
+        (i for i, line in enumerate(lines) if _HEADING_RE.match(line)), len(lines)
+    )
+    head, rest = lines[:end], lines[end:]
+    if not any(_HEADER_BULLET_RE.match(line) for line in head):
+        return None
+    return "\n".join(_splice_header(head, block) + rest)
+
+
 def build_document(
     template_text: str,
     blocks: dict[str, str],
@@ -324,6 +415,13 @@ def build_document(
             head = head.replace("<cid>", cid)
             if number is not None:
                 head = re.sub(r"(étude no\.)\s*N\b", rf"\1 {number}", head)
+            if "header" in blocks:
+                head = "\n".join(
+                    _splice_header(
+                        head.splitlines(), render_block("header", blocks["header"])
+                    )
+                )
+                used.add("header")
             out.append(head)
             continue
 
@@ -348,19 +446,13 @@ def build_document(
         out.append("\n".join(body))
 
     leftovers = [bid for bid in blocks if bid not in used]
-    if leftovers:
-        titles = {
-            "attempts": "Attempts index",
-            "reel": "Brilliancies and blunders reel",
-            "wildcards": "Wildcard review",
-        }
-        for bid in leftovers:
-            out.append(
-                "## "
-                + titles.get(bid, bid)
-                + "\n\n"
-                + render_block(bid, blocks[bid])
-            )
+    for bid in leftovers:
+        out.append(
+            "## "
+            + BLOCK_TITLES.get(bid, bid)
+            + "\n\n"
+            + render_block(bid, blocks[bid])
+        )
 
     text = "\n\n".join(part.strip("\n") for part in out if part.strip())
     return re.sub(r"\n{3,}", "\n\n", text).rstrip() + "\n"
@@ -383,14 +475,16 @@ def refresh_document(existing: str, blocks: dict[str, str]) -> tuple[str, list[s
 
     text = _BLOCK_RE.sub(replace, existing)
     missing = [bid for bid in blocks if bid not in seen]
+    if "header" in missing:
+        spliced = _splice_header_into_preamble(
+            text, render_block("header", blocks["header"])
+        )
+        if spliced is not None:
+            text = spliced
+            missing = [bid for bid in missing if bid != "header"]
     if missing:
-        titles = {
-            "attempts": "Attempts index",
-            "reel": "Brilliancies and blunders reel",
-            "wildcards": "Wildcard review",
-        }
         extra = "\n\n".join(
-            "## " + titles.get(bid, bid) + "\n\n" + render_block(bid, blocks[bid])
+            "## " + BLOCK_TITLES.get(bid, bid) + "\n\n" + render_block(bid, blocks[bid])
             for bid in missing
         )
         text = text.rstrip() + "\n\n" + extra + "\n"
@@ -399,6 +493,12 @@ def refresh_document(existing: str, blocks: dict[str, str]) -> tuple[str, list[s
 
 # --------------------------------------------------------------------------
 # Sub-processes
+#
+# Every ``[retro]`` line is printed with ``flush=True``. The children below
+# write straight to this script's stdout, and when that stdout is a pipe
+# (``make retro | tee``, a CI log) Python block-buffers our own lines while
+# the children's arrive immediately -- so an unflushed progress line surfaces
+# after the output of the step it announces.
 # --------------------------------------------------------------------------
 
 
@@ -422,7 +522,7 @@ def run_collect(scripts_dir: Path, repo: Path, results: Path) -> None:
         "--results",
         str(results),
     ]
-    print(f"[retro] collecting attempt branches: {_describe(cmd)}")
+    print(f"[retro] collecting attempt branches: {_describe(cmd)}", flush=True)
     proc = subprocess.run(cmd, cwd=str(repo), text=True)
     if proc.returncode != 0:
         raise RetroError(
@@ -444,7 +544,7 @@ def run_stats(scripts_dir: Path, repo: Path, results: Path, cid: str, out_file: 
         )
         return False
     cmd = [sys.executable, str(script), str(results), "--challenge", cid]
-    print(f"[retro] measuring: {_describe(cmd)}")
+    print(f"[retro] measuring: {_describe(cmd)}", flush=True)
     proc = subprocess.run(cmd, cwd=str(repo), text=True, stdout=subprocess.PIPE)
     if proc.returncode != 0:
         print(
@@ -489,7 +589,7 @@ def run_gallery(
             "literal brace must be written as {{ or }}."
         ) from None
 
-    print(f"[retro] rendering the gallery: {command}")
+    print(f"[retro] rendering the gallery: {command}", flush=True)
     proc = subprocess.run(command, cwd=str(cwd), shell=True, text=True)
     if proc.returncode != 0:
         print(
@@ -616,15 +716,21 @@ def main(argv: Optional[list[str]] = None) -> int:
             file=sys.stderr,
         )
 
+    retro_path = out_dir / "retro.md"
+    existing = retro_path.read_text(encoding="utf-8") if retro_path.is_file() else None
+
     blocks = {
+        # The header goes first so a fresh document keeps the bullets where
+        # the template put them, above the sections.
+        "header": build_header_block(
+            sessions, existing_round_closed(existing) if existing else None
+        ),
         "attempts": build_attempts_table(sessions),
         "reel": "```\n" + build_reel(sessions) + "\n```",
         "wildcards": build_wildcard_table(sessions),
     }
 
-    retro_path = out_dir / "retro.md"
-    if retro_path.is_file():
-        existing = retro_path.read_text(encoding="utf-8")
+    if existing is not None:
         text, appended = refresh_document(existing, blocks)
         for bid in appended:
             print(
@@ -656,14 +762,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     print()
     print(f"# {cid} — brilliancies and blunders reel")
     print(build_reel(sessions))
-    print()
-    print(f"[retro] {action}: {retro_path}")
+    print(flush=True)
+    print(f"[retro] {action}: {retro_path}", flush=True)
     for name in ("stats.txt", "gallery.html"):
         if (out_dir / name).is_file():
-            print(f"[retro] wrote:     {out_dir / name}")
+            print(f"[retro] wrote:     {out_dir / name}", flush=True)
     print(
         f"[retro] {len(sessions)} attempt(s) for {cid}. Fill in the TODO "
-        "sections of retro.md, then open the retro PR."
+        "sections of retro.md, then open the retro PR.",
+        flush=True,
     )
     return 0
 

@@ -410,12 +410,14 @@ def taxonomy_version_of(staging: Path) -> str | None:
     return None if value is None else str(value)
 
 
-def place_files(scratch: Path, staging: Path, paths: list[str]) -> None:
+def place_files(scratch: Path, staging: Path, paths: list[str]) -> list[str]:
     """Move the exported files into their final shape inside ``staging``.
 
     ``session/`` is flattened onto the target root; every other path keeps its
-    position (``solutions/...``, ``reviews/...``).
+    position (``solutions/...``, ``reviews/...``). Returns the branch paths
+    that really were copied, which is what the run's summary line counts.
     """
+    copied: list[str] = []
     for path in paths:
         source = scratch / path
         if not source.is_file():
@@ -429,6 +431,8 @@ def place_files(scratch: Path, staging: Path, paths: list[str]) -> None:
         target = staging / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+        copied.append(path)
+    return copied
 
 
 def preserve_reviews(target: Path, staging: Path) -> list[str]:
@@ -479,10 +483,10 @@ def collect_one(repo: Path, results_root: Path, item: Attempt, remote: str) -> s
         staging = tmp_path / "staging"
         staging.mkdir(parents=True)
         export_paths(repo, item.ref, paths, scratch)
-        place_files(scratch, staging, paths)
+        copied = place_files(scratch, staging, paths)
         # before the manifest: the byte comparison in _collected_at has to see
         # the final tree, or a preserved review would churn the timestamp.
-        preserve_reviews(target, staging)
+        kept_reviews = preserve_reviews(target, staging)
 
         (staging / TIMELINE_NAME).write_text(
             build_timeline(repo, base_sha, item.ref), encoding="utf-8"
@@ -517,9 +521,14 @@ def collect_one(repo: Path, results_root: Path, item: Attempt, remote: str) -> s
         shown = target.relative_to(Path.cwd())
     except ValueError:
         shown = target
+    # Two counts, never one: a review carried over from results/ is not
+    # something the branch supplied, and the old single total made a
+    # maintainer's own file look like the participant's work.
     return (
         f"{item.label}  <- {item.branch}  "
-        f"{len(files)} files, {_human_bytes(total)}  ({shown})"
+        f"{len(copied)} file(s) copied from the branch, "
+        f"{len(kept_reviews)} review file(s) kept, "
+        f"{_human_bytes(total)}  ({shown})"
     )
 
 

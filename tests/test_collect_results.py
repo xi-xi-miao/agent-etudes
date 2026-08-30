@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -208,8 +209,26 @@ def test_timeline_uses_elapsed_time(attempt_repo: Path):
 def test_report_line_and_secret_reminder(attempt_repo: Path):
     proc = collect(attempt_repo)
     assert "c001/test/1" in proc.stdout
-    assert "files" in proc.stdout
+    assert "file(s) copied from the branch" in proc.stdout
+    assert "review file(s) kept" in proc.stdout
     assert "secrets" in proc.stdout.lower()
+
+
+def test_report_line_separates_the_branch_from_the_reviews(attempt_repo: Path):
+    """A review is a maintainer's file; it must not read as branch content."""
+    first = collect(attempt_repo).stdout
+    copied = re.search(r"(\d+) file\(s\) copied from the branch", first)
+    assert copied, first
+    assert "0 review file(s) kept" in first
+
+    # a cross-annotation lands in results/ without the branch changing at all
+    reviews = attempt_repo / "results/c001/test/1/reviews"
+    reviews.mkdir(parents=True, exist_ok=True)
+    (reviews / "bob.annotations.md").write_text("---\n---\n", encoding="utf-8")
+
+    second = collect(attempt_repo).stdout
+    assert f"{copied.group(1)} file(s) copied from the branch" in second
+    assert "1 review file(s) kept" in second
 
 
 def test_reviews_are_preserved(tmp_git_repo: Path):
