@@ -52,10 +52,10 @@ participants will not know. That is the point of the étude.
 8. Everything runs offline on a laptop. The organizer tooling is Python 3.11+, stdlib + PyYAML +
    Shapely, installed by `uv sync --all-groups` (Shapely lives in the `c001` dependency group).
 
-### Two amendments to the original brief
+### Two deliberate deviations
 
-- **Size bands scaled ×2.8.** The brief's bands, at 40 parts per instance, cannot add up to the
-  required total area, so all three were scaled: large 8–17·10⁴ (25% of parts), medium 2–8·10⁴
+- **Size bands scaled ×2.8.** The originally specified bands, at 40 parts per instance, cannot add
+  up to the required total area, so all three were scaled: large 8–17·10⁴ (25% of parts), medium 2–8·10⁴
   (50%), small 0.3–2·10⁴ (25%). Total net part area per instance is drawn from
   [2.0·10⁶, 3.0·10⁶], so a perfect layout would use length 2000–3000 at `strip_width = 1000`.
 - **Placeability is capped by point-set diameter ≤ 850** (= 0.85 × strip width), rather than by a
@@ -134,10 +134,10 @@ Violations are reported with stable codes: `SCHEMA`, `INSTANCE_MISMATCH`, `MISSI
 `DUPLICATE_PLACEMENT`, `UNKNOWN_PART`, `ROTATION_NOT_ALLOWED`, `INVALID_GEOMETRY`, `OUTSIDE_STRIP`,
 `OVERLAP`.
 
-> The full brief, including the reasoning behind these choices, is
-> [`docs/handoffs/HANDOFF-CHALLENGE.md`](../../docs/handoffs/HANDOFF-CHALLENGE.md). Where it and
-> this file differ, this file and the tools are what actually gets checked (see the two amendments
-> above).
+> The full spec — every validator check with its error code, the generator's guarantees, the
+> renderer, gallery and solver contracts — is [`SPEC.md`](SPEC.md). That document is normative;
+> this one is the statement you read before playing. Where the two differ, `SPEC.md` and the tools
+> are what actually gets checked.
 
 ---
 
