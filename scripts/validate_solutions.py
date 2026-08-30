@@ -26,9 +26,20 @@ Usage::
                           [--challenge-root DIR] [--repo DIR]
                           [--summary FILE] [--no-summary] [--render-dir DIR]
 
-Which challenge to validate against is resolved in this order: ``--challenge-dir``,
-``--challenge``, ``--branch``, ``session/session.yaml``, and finally a lookup of
-the solution's ``instance_id`` across ``<challenge-root>/*/instances/*/``.
+Which challenge to validate against is resolved in this order, first hit wins:
+
+1. ``--challenge-dir DIR`` -- the oracle directory itself, no lookup at all;
+2. ``--challenge cXXX``;
+3. ``--branch attempt/<cid>/<participant>/<n>``;
+4. ``session/session.yaml``, found by walking *up from the directory of the
+   first solution file* and stopping at that solution's own repository root --
+   never the current directory, never this script's own checkout;
+5. a lookup of the solution's ``instance_id`` across
+   ``<challenge-root>/*/instances/*/``.
+
+Steps 4 and 5 are only reached when no flag named a challenge, so an explicit
+``--challenge``/``--branch``/``--challenge-dir`` can never be overridden by an
+ambient ``session.yaml``.
 
 Exit status: 0 when every solution is valid or skipped, 1 when any solution is
 invalid or could not be checked, 2 for a usage/setup problem.
@@ -142,9 +153,9 @@ def _read_instance_id(path: Path) -> Optional[str]:
     return None
 
 
-def _challenge_from_session(repo: Path) -> Optional[str]:
-    """The ``challenge:`` field of ``session/session.yaml`` on this branch."""
-    for candidate in (repo / "session" / "session.yaml", repo / "session.yaml"):
+def _challenge_in_dir(directory: Path) -> Optional[str]:
+    """The ``challenge:`` field of a ``session.yaml`` directly under ``directory``."""
+    for candidate in (directory / "session" / "session.yaml", directory / "session.yaml"):
         if not candidate.is_file():
             continue
         try:
@@ -154,6 +165,32 @@ def _challenge_from_session(repo: Path) -> Optional[str]:
         cid = data.get("challenge")
         if isinstance(cid, str) and CHALLENGE_ID_RE.fullmatch(cid):
             return cid
+    return None
+
+
+def _challenge_from_session(solutions: list[Path]) -> Optional[str]:
+    """``challenge:`` from the ``session/session.yaml`` that owns these solutions.
+
+    The search walks *upwards from each solution file's own directory* and
+    stops at the first repository root it meets, so a run only ever reads the
+    session.yaml of the attempt the solutions belong to. Deliberately not the
+    current directory or the directory this script lives in: validating an
+    exported oracle from inside another checkout used to pick up that
+    checkout's ``session/session.yaml`` and select a challenge nobody asked
+    for.
+    """
+    seen: set[Path] = set()
+    for solution in solutions:
+        start = solution.expanduser().resolve().parent
+        for directory in (start, *start.parents):
+            if directory in seen:
+                break  # already walked from an earlier solution
+            seen.add(directory)
+            cid = _challenge_in_dir(directory)
+            if cid is not None:
+                return cid
+            if (directory / ".git").exists():
+                break  # a repository root: never look outside it
     return None
 
 
@@ -203,7 +240,7 @@ def _resolve_challenge_dir(args, solutions: list[Path], repo: Path) -> Path:
             )
         cid = parsed[0]
     else:
-        cid = _challenge_from_session(repo)
+        cid = _challenge_from_session(solutions)
 
     if cid is not None:
         d = root / cid
@@ -221,8 +258,8 @@ def _resolve_challenge_dir(args, solutions: list[Path], repo: Path) -> Path:
 
     raise EtudesError(
         "could not work out which challenge these solutions belong to. Pass "
-        "--challenge cXXX (or --challenge-dir DIR), or run from an attempt "
-        "branch with a session/session.yaml."
+        "--challenge cXXX (or --challenge-dir DIR), or validate solution files "
+        "that live in an attempt checkout with a session/session.yaml."
     )
 
 
@@ -480,6 +517,15 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Validate solution files with the validator of the challenge they "
             "belong to."
+        ),
+        epilog=(
+            "Which challenge is used, first hit wins: --challenge-dir, then "
+            "--challenge, then --branch, then the session/session.yaml found by "
+            "walking up from the first solution file's own directory (stopping "
+            "at that solution's repository root -- never the current directory "
+            "or this script's checkout), then a lookup of the solution's "
+            "instance_id under --challenge-root. An explicit flag is never "
+            "overridden by an ambient session.yaml."
         ),
     )
     parser.add_argument("solutions", nargs="*", help="solution JSON files to check")

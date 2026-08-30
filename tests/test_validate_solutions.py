@@ -10,6 +10,13 @@ Because that fixture directory is not named after its id, the tests use the
 ``--challenge-dir`` escape hatch, plus one copy of the fixture into a
 ``c999/`` directory for the ``--challenge-root`` / ``--challenge`` / ``--branch``
 paths.
+
+Every run is hermetic: the fixture is copied into ``tmp_path`` first (the
+module-level ``fake_challenge_dir`` below overrides the session fixture in
+``conftest.py``) and the working directory is ``tmp_path`` too. Naming a path
+inside this repository would let the script walk up to the repository's own
+``session/session.yaml`` and resolve some other challenge -- which is exactly
+the accident this isolation exists to rule out.
 """
 
 from __future__ import annotations
@@ -34,6 +41,25 @@ def run(*args, cwd=None) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
     )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run every test from ``tmp_path``, never from inside this repository."""
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.fixture
+def fake_challenge_dir(tmp_path: Path, repo_root: Path) -> Path:
+    """A private copy of ``tests/fixtures/fake-challenge`` inside ``tmp_path``.
+
+    Overrides the session-scoped fixture in ``conftest.py`` so that no solution
+    path handed to the script lives in the repository under test.
+    """
+    source = repo_root / "tests" / "fixtures" / "fake-challenge"
+    destination = tmp_path / "fake-challenge"
+    shutil.copytree(source, destination, ignore=IGNORE)
+    return destination
 
 
 @pytest.fixture
@@ -391,6 +417,48 @@ def test_session_yaml_selects_the_challenge(
     assert "[valid]" in proc.stdout
     # the report shows repository-relative paths
     assert "solutions/c999-dev-01.json" in proc.stdout
+
+
+def test_an_unrelated_repositorys_session_yaml_is_never_read(
+    tmp_git_repo: Path, challenge_root: Path, fake_challenge_dir: Path
+):
+    """The session.yaml fallback follows the *solution*, not the working directory.
+
+    Running the tool from inside some other checkout -- an attempt branch, say,
+    while validating an exported oracle -- used to pick up that checkout's
+    ``session/session.yaml`` and select a challenge the caller never named.
+    """
+    session = tmp_git_repo / "session"
+    session.mkdir()
+    (session / "session.yaml").write_text(
+        "participant: alice\nchallenge: c001\nattempt: 1\n", encoding="utf-8"
+    )
+
+    proc = run(
+        example(fake_challenge_dir, "valid.json"),
+        "--challenge-root",
+        challenge_root,
+        cwd=tmp_git_repo,
+    )
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "c999" in proc.stdout
+    assert "c001" not in proc.stdout + proc.stderr
+
+
+def test_help_documents_the_resolution_order():
+    proc = run("--help")
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    for fragment in (
+        "--challenge-dir",
+        "--challenge",
+        "--branch",
+        "session/session.yaml",
+        "instance_id",
+    ):
+        assert fragment in proc.stdout, fragment
+    assert "walking up from the first solution file" in " ".join(proc.stdout.split())
 
 
 def test_changed_from_git_lists_solution_files(
