@@ -57,7 +57,7 @@ Run `make help` for the full list of targets.
 
 Placeholders used throughout: `<cid>` is a challenge id such as `c001`, `<participant>` is your
 handle (`[a-z0-9-]+`, the same string in every file), `<n>` is your attempt number for that étude,
-from 1.
+from 1, and `<instance_id>` is the stem of an instance file, equal to its `instance_id` field.
 
 ```
 AGENTS.md            orientation for coding agents: map, invariants, commands, conventions

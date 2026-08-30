@@ -61,8 +61,8 @@ validate: "python tools/validate.py {instance} {solution} --json"
 - [ ] `dependency_group` — *optional*; the uv dependency group carrying this challenge's extra
       libraries (§5). Omit it if stdlib and PyYAML are enough.
 - [ ] `solutions_glob` — where solutions live **on the attempt branch**, relative to the repository
-      root. CI uses it to decide whether a push needs validating, and `collect_results.py` uses it
-      to find what to copy.
+      root. `collect_results.py` reads it to decide what to copy. CI does not: it validates whatever
+      a push changes under a `solutions/` directory, so keep solutions there if CI is to see them.
 - [ ] `validate` — the command template below.
 
 ## 3. The validator contract

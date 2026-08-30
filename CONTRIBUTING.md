@@ -21,7 +21,7 @@ git fetch --tags
 git switch -c attempt/c001/alice/1 c001-start
 ```
 
-Branch names follow `attempt/<cid>/<you>/<n>`, where `<you>` is your participant id
+Branch names follow `attempt/<cid>/<participant>/<n>`, where `<participant>` is your participant id
 (`[a-z0-9-]+`, the same string in every file you write) and `<n>` is your attempt number for *this*
 étude, starting at 1. `n` restarts per étude: `attempt/c002/alice/1` is a first attempt even if you
 made three attempts at c001. CI reads the challenge id out of the branch name, so the shape matters.
@@ -100,8 +100,7 @@ git log --reverse --format='%h %ad %s' --date=iso   # your raw material
 - `session/annotations.md` — one line per move, four layers, in the grammar the linter enforces.
   Keep the move lines inside the fenced code block the template opens for them; the prose around it
   is yours to rewrite and the tooling ignores it (TAXONOMY.md section 8). Apply glyphs in hindsight
-  only. For `?` and `??` use the earliest-cause rule: mark the earliest move from which the trouble
-  became unrecoverable, not the move where the symptom surfaced.
+  only, and place `?` and `??` by the earliest-cause rule (TAXONOMY.md section 4.1).
 - `session/postmortem.md` — the plan, where and why you intervened, where the agent got stuck, what
   you would do differently, and one thing worth stealing from your own session.
 - `session/decisions/dr-XXX.md` — one record per decision you made in a domain you do not know:
@@ -143,8 +142,8 @@ gh pr create --draft --label attempt --base main \
   --body "Attempt 1 at étude no. 1. Draft on purpose — this PR is never merged."
 ```
 
-`gitleaks` is a single binary — `brew install gitleaks`, or a build from
-<https://github.com/gitleaks/gitleaks/releases>. `--no-git` scans the working tree as it stands,
+`gh` is GitHub's CLI (`brew install gh`, then `gh auth login`). `gitleaks` is a single binary —
+`brew install gitleaks`, or a build from <https://github.com/gitleaks/gitleaks/releases>. `--no-git` scans the working tree as it stands,
 which is what you want before the first push; `--redact` keeps any finding out of your terminal
 scrollback. CI runs gitleaks over the pushed history on every push to `attempt/**`, with the same
 config file.
@@ -321,4 +320,4 @@ branch.
 - Taxonomy changes only via a PR labelled `taxonomy-change`, motivated by wildcard evidence or by a
   session that demonstrably could not be described.
 - A rule is stated in full in one file; every other file gives the path and a link.
-- `uv run pytest` and `make check-words` are green before you ask for review.
+- `make lint`, `uv run pytest` and `make check-words` are green before you ask for review.

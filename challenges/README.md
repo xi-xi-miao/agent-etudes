@@ -2,7 +2,7 @@
 
 One directory per étude, named after its challenge id (`^c[0-9]{3}$`). The directory holds the
 participant-facing statement, the organizer's tooling, the committed dev instances and the tests;
-the human-readable title, the number and the current status live in `challenges/<id>/challenge.yaml`.
+the human-readable title, the number and the current status live in `challenges/<cid>/challenge.yaml`.
 
 ## Index
 
@@ -10,16 +10,16 @@ the human-readable title, the number and the current status live in `challenges/
 |---|---|---|---|---|
 | [c001](c001/) | 1 | Irregular Shape Nesting | open | `c001-start` |
 
-The status column mirrors `status:` in `challenges/<id>/challenge.yaml` — keep the two in step when
+The status column mirrors `status:` in `challenges/<cid>/challenge.yaml` — keep the two in step when
 you flip one:
 
 - **draft** — under construction; do not start an attempt yet, the position can still move.
-- **open** — the start tag exists and is frozen; fork `attempt/<cid>/<you>/<n>` from it and play.
+- **open** — the start tag exists and is frozen; fork `attempt/<cid>/<participant>/<n>` from it and play.
 - **closed** — the round is over; the hidden seeds have been published and `instances/hidden/` is
   committed, so late attempts can still be validated against the full set.
 
 Start an attempt by following [CONTRIBUTING.md](../CONTRIBUTING.md); read
-`challenges/<id>/README.md` for the rules of that particular étude.
+`challenges/<cid>/README.md` for the rules of that particular étude.
 
 ## Design criteria for an étude
 

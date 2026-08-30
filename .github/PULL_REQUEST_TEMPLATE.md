@@ -14,7 +14,7 @@
 
 ---
 
-### Attempt PR (`attempt/<cid>/<you>/<n>` → `main`)
+### Attempt PR (`attempt/<cid>/<participant>/<n>` → `main`)
 
 Open it as a **draft**, label it `attempt`. It exists for CI and visibility only and **is never
 merged** — the branch itself is the record. Leave it open for the round.

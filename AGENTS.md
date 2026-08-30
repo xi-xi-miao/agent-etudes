@@ -67,7 +67,7 @@ Two situations you are likely in:
 7. The annotated timeline follows the grammar `scripts/lint_annotations.py` enforces, and its
    `participant`, `challenge` and `attempt` agree with the session metadata beside it and with the
    branch name. `+0:00` is the start of the session, not the first commit.
-   [`TAXONOMY.md` section 8; `templates/annotations.md`]
+   [`TAXONOMY.md` section 8; `templates/annotations.md`; `CONTRIBUTING.md` step 3]
 8. A solution is written to `solutions/<instance_id>.json` on the attempt branch, with its rendered
    SVG beside it under the same stem. Only the session and solution artifacts are collected, into
    `results/<cid>/<participant>/<n>/`; the solver code stays on the branch and says how to build and

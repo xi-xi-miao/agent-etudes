@@ -21,7 +21,8 @@ the run.
 Layout
 ------
 An ``annotations.md`` is markdown. When its body contains a fenced code block
-(a line starting with three backticks opens one, the next such line closes it)
+(a line whose first non-blank characters are three backticks opens one, the next
+such line closes it)
 only the lines inside fences are read as moves and everything outside them is
 prose; a ``+H:MM`` line outside every fence is an error. A file with no fence
 is read line by line. The rule is implemented in

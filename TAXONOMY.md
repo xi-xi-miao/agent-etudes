@@ -195,7 +195,9 @@ timestamp  phase  move  [glyph]  [(motifs)]  ["comment"]  [@anchor]
 
 **Fences.** An `annotations.md` is markdown and is read as such. A line of three
 backticks, optionally followed by an info string such as `text`, opens a fenced
-block and the next such line closes it. Once a file contains one, only the lines
+block and the next such line closes it; leading whitespace before the backticks
+is ignored, so an indented fence still opens or closes a block even where a
+markdown renderer would not. Once a file contains one, only the lines
 inside fenced blocks are moves; blank lines and lines starting with `#` inside a
 block are still ignored, everything outside the blocks is prose for the reader
 that the tooling ignores, and a `+H:MM` line outside every block is a lint error,

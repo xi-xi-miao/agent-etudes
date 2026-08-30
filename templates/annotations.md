@@ -17,11 +17,16 @@ and your transcript. Vocabulary: TAXONOMY.md (v0.2). Check the file with
 
 This file is markdown. Everything outside a fenced code block is prose for the
 reader and the tooling ignores it; the move lines go inside a fenced code block
-(a line of three backticks followed by `text` opens it, a bare line of three
-backticks closes it). Once the file has a fence, a move line outside every
-fence is an error. A file with no fence at all is read line by line, as before.
+(a line of three backticks, with or without an info string such as `text`,
+opens it and the next such line closes it). Every fenced block in the file is
+read as moves, so keep other code blocks out of this file. Once the file has a
+fence, a move line outside every fence is an error. A file with no fence at all
+is read line by line, as before (TAXONOMY.md section 8).
 
 ## Frontmatter (all five fields required, above)
+
+The values above ship as placeholders: replace `participant`, `attempt` and
+`session_date` with your own, matching `session.yaml`.
 
 | Field | Value |
 |---|---|
@@ -61,8 +66,9 @@ Fields are separated by spaces or tabs, in this fixed order:
 ## Moves
 
 The specimen lines below are commented out. Delete them and write your own in
-the same block, unindented. A full worked example lives in
-`examples/example-session/annotations.md`.
+the same block, unindented. The sections above are reference material — keep,
+trim or replace them as you like; the tooling ignores them. A full worked
+example lives in `examples/example-session/annotations.md`.
 
 ```text
 #   +0:00  Recon    SCOUT                      "asked for a repo map before touching anything"  @a1b2c3d

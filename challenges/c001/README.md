@@ -14,7 +14,7 @@ Fork your attempt branch from the start tag:
 
 ```sh
 git fetch --tags
-git switch -c attempt/c001/<you>/1 c001-start
+git switch -c attempt/c001/<participant>/1 c001-start
 ```
 
 Run `uv sync --all-groups` once — the `c001` dependency group is where Shapely lives. Commands are
@@ -28,8 +28,8 @@ gallery — doubles as the install check:
 make demo CHALLENGE=c001            # or: bash challenges/c001/demo.sh [OUT_DIR]
 ```
 
-Everything up to *The reference floor* is what you need during the four hours; after the horizontal
-rule come the tools' contracts.
+Everything above the horizontal rule is what you need during the four hours; below it come the
+tools' contracts.
 
 ## The challenge
 
@@ -107,7 +107,7 @@ These conventions are shared by every format and every tool.
   centroid and is not this transform.
 - **Used length** `L` is the largest x-coordinate reached by any placed part.
 - **Utilization** is `Σ part_area / (W × L)`, over **all** parts of the instance, clamped to
-  `[0, 1]`, and `0.0` when `L ≤ 0`. It is formatted with one decimal place.
+  `[0, 1]`, and `0.0` when `L ≤ 0`. It is formatted as a percentage with one decimal place.
 
 ## File formats
 
@@ -238,7 +238,7 @@ the round and must be honoured; `--seed N` exists so that one run can be reprodu
   machine. `bash challenges/c001/tools/make_hidden.sh --help` spells out the protocol.
 - **Checkpoints.** Commit `solutions/` **and the rendered SVGs** at milestones during the session —
   first valid layout, first refinement pass, the last thing that worked. Render each SVG beside its
-  solution JSON with the same stem (`solutions/<instance_id>.svg`, `solutions/hidden/<id>.svg`
+  solution JSON with the same stem (`solutions/<instance_id>.svg`, `solutions/hidden/<instance_id>.svg`
   after the hidden round) — the collector keeps only those;
   [CONTRIBUTING.md](../../CONTRIBUTING.md) step 2 shows the tree. Those intermediate results are
   the material this lab exists to study: the git timeline should show layout quality evolving, not
@@ -497,7 +497,8 @@ onto them. The header carries the instance id, the utilization and the used leng
 else — no participant names, no comparison between attempts. Rendering is deliberately tolerant so
 it stays useful for debugging: an unplaced part is not drawn and a placement naming an unknown part
 id is ignored — `validate.py` is the tool that objects — but utilization is still computed over all
-instance parts, so a partial layout renders with a pessimistic number rather than an invented one.
+instance parts, so a partial layout renders with the same flatteringly high number the validator
+would report, not an invented one.
 Exit `0`, or `2` on unreadable input, an instance-id mismatch, or an unwritable output.
 
 [`tools/gallery.py`](tools/gallery.py). Each path is a solution file, a directory (its `*.json`,

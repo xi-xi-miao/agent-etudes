@@ -31,6 +31,12 @@ CITED_HEADINGS = (
     "What good looks like",
     "The reference floor",
     "Geometry conventions",
+    "Dev instances, hidden instances, checkpoints",
+    "Validator contract",
+    "Exit codes and performance",
+    "Generator guarantees",
+    "Tier-3 holes and the hole-fit property",
+    "Baseline",
 )
 
 

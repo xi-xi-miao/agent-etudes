@@ -78,7 +78,8 @@ def test_constants():
 
 
 def test_transform_triangle_90_then_translate():
-    """The worked example from the spec: rotate CCW 90 deg, then translate."""
+    """Rotate CCW 90 deg, then translate -- the placement transform of README.md
+    ("Geometry conventions")."""
     tri = [[0.0, 0.0], [100.0, 0.0], [0.0, 50.0]]
     got = geom.transform_ring(tri, [10.0, 20.0], 90.0)
     expected = [(10.0, 20.0), (10.0, 120.0), (-40.0, 20.0)]
