@@ -6,11 +6,17 @@ taxonomy_version: "0.2"
 session_date: 2026-09-12
 ---
 
-# Synthetic example session (étude no. 1, tier 1). Not a real attempt — this file
-# exists so the linter, the stats tooling and the templates have something
-# complete to chew on. It demonstrates all four layers, both stance markers, a
-# wildcard move, both anchor kinds, and the earliest-cause rule.
+# Example session (étude no. 1, tier 1)
 
+Synthetic, and not a real attempt: this file exists so the linter, the stats
+tooling and the templates have something complete to chew on. It demonstrates
+all four layers, both stance markers, a wildcard move, both anchor kinds, and
+the earliest-cause rule.
+
+The moves sit inside the fenced block below. Everything outside the block is
+prose for the reader, which the tooling ignores (TAXONOMY.md section 8).
+
+```text
 +0:00  Recon    SCOUT                       "asked for a map of challenges/c001 and a list of the validator error codes"   @t001
 +0:12  Recon    TUTOR                       "had it explain no-fit polygons and bottom-left placement before I chose anything"  @t118
 +0:26  Plan     OPTIONS                     "three overlap strategies with tradeoffs: no-fit polygon, pairwise intersection, raster masks"  @t204
@@ -25,3 +31,4 @@ session_date: 2026-09-12
 +3:31  Verify   X-timebox      (rabbit-hole)   "capped the annealing detour at 20 minutes on a kitchen timer and dropped it when the timer went"
 +3:44  Verify   DEFER      ?!               "accepted the agent's handling of TOL_AREA on touching edges without reading the pair test"
 +3:52  Verify   NOTE                        "laptop slept for about 10 minutes around +2:20; the elapsed stamps already account for it"
+```

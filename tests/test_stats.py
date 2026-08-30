@@ -361,6 +361,54 @@ def test_grep_prints_no_tables(tree, capsys):
     assert "Move frequency by family" not in out
 
 
+DAVE_ANNOTATIONS = """\
+---
+participant: dave
+challenge: c001
+attempt: 1
+taxonomy_version: "0.2"
+session_date: 2026-09-13
+---
+
+# Dave, attempt 1
+
+Two lines of prose the tooling ignores, sitting where a reader wants them and
+where a line-counting tool would trip over them.
+
+```text
++0:20  Recon    SCOUT       "read the format"
++0:40  Recover  RESET  !!   "clean slate"
+```
+"""
+
+
+def test_grep_reports_the_on_disk_line_number_through_a_fence(tmp_path, capsys):
+    """``--grep`` prints where to look, so the number must survive the prose.
+
+    ``stats.py`` re-reads the file by ``Move.line``; with a fenced layout that
+    number counts the heading, the paragraphs and the opening fence too, or the
+    printed text would be some other line entirely.
+    """
+    root = tmp_path / "results"
+    dave = root / "c001" / "dave" / "1"
+    dave.mkdir(parents=True)
+    (dave / "session.yaml").write_text(
+        BOB_SESSION.replace("participant: bob", "participant: dave"), encoding="utf-8"
+    )
+    (dave / "annotations.md").write_text(DAVE_ANNOTATIONS, encoding="utf-8")
+
+    lines = DAVE_ANNOTATIONS.splitlines()
+    expected = next(i + 1 for i, t in enumerate(lines) if " RESET " in t)
+
+    code, out, err = run(capsys, str(root), "--grep", "RESET")
+
+    assert code == 0, err
+    printed = out.strip().splitlines()
+    assert len(printed) == 1, printed
+    assert printed[0].startswith(f"c001/dave/1:{expected}: "), printed
+    assert printed[0].endswith('"clean slate"'), printed
+
+
 # --------------------------------------------------------------------------
 # Filters, roots and error handling
 # --------------------------------------------------------------------------

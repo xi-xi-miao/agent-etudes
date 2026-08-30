@@ -861,3 +861,96 @@ def test_a_reviewer_copy_relabelled_with_the_reviewer_is_still_an_error(tmp_path
 
     assert rc == 1, out
     assert any("participant is 'bob'" in ln for ln in errors_in(out)), out
+
+
+# --------------------------------------------------------------------------
+# The fenced layout (TAXONOMY.md section 8)
+#
+# The example ships in the fenced layout, so every fixture above is already a
+# fenced file: `replace_line`, `line_number_of` and the `CORRUPTIONS` table
+# prove the rule is invisible to the checks that matter. What is left is the
+# rule's own edge -- a move line that fell out of the block -- and the
+# reviewer copies, which get the rule through `parse_annotations_file`.
+# --------------------------------------------------------------------------
+
+
+STRAY_MOVE = '+3:55  Verify   NOTE                        "written after the fence"\n'
+
+
+def test_example_uses_the_fenced_layout():
+    """Guards the assumption the fixtures above are built on."""
+    lines = EXAMPLE_ANNOTATIONS.splitlines()
+    assert "```text" in lines, "the example should open one ```text block"
+    opening = lines.index("```text")
+    assert "```" in lines[opening + 1 :], "the block is never closed"
+    assert lines[-1] == "```", "the file should end with the closing fence"
+
+
+def test_move_line_after_the_closing_fence_is_reported_at_its_line(tmp_path, capsys):
+    text = EXAMPLE_ANNOTATIONS + STRAY_MOVE
+    d = write_session_dir(tmp_path, annotations=text)
+    path = d / "annotations.md"
+    expected_line = line_number_of(text, "written after the fence")
+
+    rc = lint.main([str(path), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 1, out
+    reported = errors_in(out)
+    assert len(reported) == 1, reported
+    assert reported[0].startswith(f"{path}:{expected_line}: error: "), reported
+    assert "outside a ``` fence" in reported[0], reported
+
+
+def test_move_line_outside_the_fence_via_cli(tmp_path):
+    text = EXAMPLE_ANNOTATIONS + STRAY_MOVE
+    d = write_session_dir(tmp_path, annotations=text)
+    path = d / "annotations.md"
+    expected_line = line_number_of(text, "written after the fence")
+
+    proc = run_cli(str(path), "--session")
+
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert any(
+        line.startswith(f"{path}:{expected_line}: error: ")
+        and "outside a ``` fence" in line
+        for line in errors_in(proc.stdout)
+    ), proc.stdout
+
+
+def _attempt_with_reviewer_copy(tmp_path: Path, review: str) -> Path:
+    attempt = tmp_path / "results" / "c001" / "example" / "1"
+    (attempt / "reviews").mkdir(parents=True)
+    (attempt / "annotations.md").write_text(EXAMPLE_ANNOTATIONS, encoding="utf-8")
+    (attempt / "session.yaml").write_text(EXAMPLE_SESSION, encoding="utf-8")
+    (attempt / "reviews" / "bob.annotations.md").write_text(review, encoding="utf-8")
+    return attempt
+
+
+def test_reviewer_copy_in_the_fenced_layout_is_linted_the_same_way(tmp_path, capsys):
+    review = EXAMPLE_ANNOTATIONS.replace(
+        "participant: example", "participant: example\nannotator: bob", 1
+    )
+    _attempt_with_reviewer_copy(tmp_path, review)
+
+    rc = lint.main(["--root", str(tmp_path), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 0, out
+    assert "2 file(s), 0 error(s), 0 warning(s)" in out
+
+
+def test_reviewer_copy_move_outside_its_fence_is_an_error(tmp_path, capsys):
+    review = EXAMPLE_ANNOTATIONS + STRAY_MOVE
+    attempt = _attempt_with_reviewer_copy(tmp_path, review)
+    copy = attempt / "reviews" / "bob.annotations.md"
+    expected_line = line_number_of(review, "written after the fence")
+
+    rc = lint.main(["--root", str(tmp_path), "--session"])
+    out = capsys.readouterr().out
+
+    assert rc == 1, out
+    reported = errors_in(out)
+    assert len(reported) == 1, reported
+    assert reported[0].startswith(f"{copy}:{expected_line}: error: "), reported
+    assert "outside a ``` fence" in reported[0], reported
